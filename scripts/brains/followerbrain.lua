@@ -2,7 +2,7 @@ require "behaviours/ynafollow"
 require "behaviours/faceentity"
 require "behaviours/chaseandattack"
 require "behaviours/runaway"
-require "behaviours/doaction"
+require "behaviours/ynadoaction"
 require "behaviours/ynafindlight"
 require "behaviours/findheat"
 require "behaviours/panic"
@@ -19,6 +19,7 @@ local STOP_RUN_AWAY_DIST = 8
 local SEE_FOOD_DIST = 10
 local MAX_PICK_DIST = 10
 local MAX_WANDER_DIST = 10
+local ACTION_TIME = 0
 
 local Follower = Class(Brain, function(self, inst)
     Brain._ctor(self, inst)
@@ -50,12 +51,13 @@ local function FindTreeToChopAction(inst)
 end
 
 local function KeepChoppingAction(inst)
-    local time_since_last_action = GetTime() - inst.actionbuffer
+    ACTION_TIME = GetTime() - inst.actionbuffer
 	
-    if inst.components.follower.leader and inst.components.follower.leader:GetDistanceSqToInst(inst) <= KEEP_CHOPPING_DIST*KEEP_CHOPPING_DIST and not GetClock():IsNight() and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) and (inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "axe" or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "multitool_axe_pickaxe" or (inst.prefab == "ynawoodie" and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "ynalucy")) and time_since_last_action <= 3 then
+    if inst.components.follower.leader and inst.components.follower.leader:GetDistanceSqToInst(inst) <= KEEP_CHOPPING_DIST*KEEP_CHOPPING_DIST and not GetClock():IsNight() and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) and (inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "axe" or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "multitool_axe_pickaxe" or (inst.prefab == "ynawoodie" and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "ynalucy")) and ACTION_TIME <= 3 then
 		return true
 	else
 		inst.actionbuffer = GetTime()
+		ACTION_TIME = 0
 		return false
 	end
 end
@@ -74,18 +76,19 @@ local function FindRockToMineAction(inst)
 end
 
 local function KeepMiningAction(inst)
-	local time_since_last_action = GetTime() - inst.actionbuffer
+	ACTION_TIME = GetTime() - inst.actionbuffer
 	
-    if inst.components.follower.leader and inst.components.follower.leader:GetDistanceSqToInst(inst) <= KEEP_CHOPPING_DIST*KEEP_CHOPPING_DIST and not GetClock():IsNight() and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) and (inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "pickaxe" or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "multitool_axe_pickaxe") and time_since_last_action <= 3 then
+    if inst.components.follower.leader and inst.components.follower.leader:GetDistanceSqToInst(inst) <= KEEP_CHOPPING_DIST*KEEP_CHOPPING_DIST and not GetClock():IsNight() and inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) and (inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "pickaxe" or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "multitool_axe_pickaxe") and ACTION_TIME <= 3 then
 		return true
 	else
 		inst.actionbuffer = GetTime()
+		ACTION_TIME = 0
 		return false
 	end
 end
 
 local function FindFoodAction(inst)
-print('food')
+--print('food')
     local target = nil
 
 	if inst.sg:HasStateTag("busy") then
@@ -96,9 +99,9 @@ print('food')
         target = inst.components.inventory:FindItem(function(item) return inst.components.eater:CanEat(item) end)
     end
     
-    local time_since_eat = inst.components.eater:TimeSinceLastEating()
+    ACTION_TIME = inst.components.eater:TimeSinceLastEating()
     
-    if not target and (not time_since_eat or time_since_eat > 2) then
+    if not target and (not ACTION_TIME or ACTION_TIME > 2) then
         target = FindEntity(inst, SEE_FOOD_DIST, function(item) 
 				if item:GetTimeAlive() < 8 then return false end
 				if item.prefab == "mandrake" then return false end
@@ -110,10 +113,11 @@ print('food')
     end
     if target then
 		inst.actionbuffer = GetTime()
+		ACTION_TIME = 0
         return BufferedAction(inst, target, ACTIONS.EAT)
     end
 
-    if not target and (not time_since_eat or time_since_eat > 2) then
+    if not target and (not ACTION_TIME or ACTION_TIME > 2) then
         target = FindEntity(inst, SEE_FOOD_DIST, function(item) 
                 if not item.components.shelf then return false end
                 if not item.components.shelf.itemonshelf or not item.components.shelf.cantakeitem then return false end
@@ -126,6 +130,7 @@ print('food')
 
     if target then
 		inst.actionbuffer = GetTime()
+		ACTION_TIME = 0
         return BufferedAction(inst, target, ACTIONS.TAKEITEM)
     end
 
@@ -147,7 +152,7 @@ local function PickItemAction(inst)
 		return
 	end
 
-    local time_since_last_action = GetTime() - inst.actionbuffer
+    ACTION_TIME = GetTime() - inst.actionbuffer
 	
 	local items = {}
 	for k = 1,inst.components.inventory.maxslots do
@@ -163,11 +168,12 @@ local function PickItemAction(inst)
         end
     end
 	
-	if items and time_since_last_action > 2 then
+	if items and ACTION_TIME > 2 then
 		local target = FindEntity(inst, SEE_FOOD_DIST, function(item) return has_value(items, item.prefab) and item.components.pickable and item.components.pickable:CanBePicked()
 			end)
 		if target then
 			inst.actionbuffer = GetTime()
+			ACTION_TIME = 0
 			return BufferedAction(inst, target, ACTIONS.PICK)
 		end
 	end
@@ -179,29 +185,31 @@ local function PickUpItemAction(inst)
 		return
 	end
 
-    local time_since_last_action = GetTime() - inst.actionbuffer
+    ACTION_TIME = GetTime() - inst.actionbuffer
 	
 	if inst.prefab == 'ynawoodie' and inst.components.inventory:Has('ynalucy',0) and not inst.components.beaverness:IsBeaver() then
-		if time_since_last_action > 2 then
+		if ACTION_TIME > 2 then
 			local target = FindEntity(inst, SEE_TREE_DIST, function(item) return item.prefab == 'ynalucy' end)
 			if target then
 				inst.actionbuffer = GetTime()
+				ACTION_TIME = 0
 				return BufferedAction(inst, target, ACTIONS.PICKUP)
 			end
 		end
 	end
 	
 	if inst.prefab == 'ynawillow' and inst.components.inventory:Has('ynalighter',0) then
-		if time_since_last_action > 2 then
+		if ACTION_TIME > 2 then
 			local target = FindEntity(inst, SEE_TREE_DIST, function(item) return item.prefab == 'ynalighter' end)
 			if target then
 				inst.actionbuffer = GetTime()
+				ACTION_TIME = 0
 				return BufferedAction(inst, target, ACTIONS.PICKUP)
 			end
 		end
 	end
 	
-	--print("pickuploop",time_since_last_action)
+	--print("pickuploop",PICKUP_TIME)
     local items = {}
 	for k = 1,inst.components.inventory.maxslots do
         local v = inst.components.inventory.itemslots[k]
@@ -210,14 +218,16 @@ local function PickUpItemAction(inst)
         end
     end
 	
-	if items and time_since_last_action > 2 then
+	if items and ACTION_TIME > 2 then
 		local target = FindEntity(inst, SEE_FOOD_DIST, function(item) return has_value(items, item.prefab) and item.growtime == nil end)
 		if target then
-			--print("pickup",target)
+			print("pickup",target)
 			inst.actionbuffer = GetTime()
+			ACTION_TIME = 0
 			return BufferedAction(inst, target, ACTIONS.PICKUP)
 		end		
 	end
+	--print('nopickup',GetTime())
 end
 
 local function DigAction(inst)
@@ -225,8 +235,8 @@ local function DigAction(inst)
 		return
 	end
 
-	local time_since_last_action = GetTime() - inst.actionbuffer
-	--print('dig',time_since_last_action)
+	ACTION_TIME = GetTime() - inst.actionbuffer
+	--print('dig',DIG_TIME)
 	local items = {}
 	for k = 1,inst.components.inventory.maxslots do
 		local v = inst.components.inventory.itemslots[k]
@@ -249,12 +259,13 @@ local function DigAction(inst)
 		end
 	end
 	
-	if time_since_last_action > 3 then
+	if ACTION_TIME > 3 then
 		local target = FindEntity(inst, SEE_TREE_DIST, function(item) return has_value(items, item.prefab) and item.components.workable and item.components.workable.action == ACTIONS.DIG end)
 		local invObject = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
 		
 		if target then
 			inst.actionbuffer = GetTime()
+			ACTION_TIME = 0
 			return BufferedAction(inst, target, ACTIONS.DIG, invObject)
 		end
 	end
@@ -293,8 +304,8 @@ function Follower:OnStart()
 					self.inst.components.temperature:GetCurrent() < 20 end, "StayWarm",
 					FindHeat(self.inst))),
 					
-			--IfNode(function() return self.inst.components.hunger:GetPercent() < .5 end, "IsStarving",
-			--	DoAction(self.inst, FindFoodAction)),
+			IfNode(function() return self.inst.components.hunger:GetPercent() < .5 end, "IsStarving",
+				DoAction(self.inst, FindFoodAction)),
 					
 			WhileNode(function() return self.inst.components.follower.leader ~= nil and self.inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) and self.inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == "shovel" and
 				self.inst.components.follower.leader:GetDistanceSqToInst(self.inst) <= MAX_PICK_DIST*MAX_PICK_DIST end, "Dig",		
@@ -326,7 +337,7 @@ function Follower:OnStart()
 			
 			FaceEntity(self.inst, GetFaceTargetFn, KeepFaceTargetFn)
 			
-		}, .1)
+		}, .5)
     
     self.bt = BT(self.inst, root)
 
