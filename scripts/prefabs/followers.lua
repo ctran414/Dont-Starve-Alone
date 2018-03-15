@@ -59,23 +59,23 @@ local assets =
 
 local woodie_inv = 
 {
-	"ynalucy",
+	"dsalucy",
 }
 
 local willow_inv = 
 {
-	"ynalighter",
+	"dsalighter",
 }
 
 local wendy_inv = 
 {
-    "ynaabigail_flower",
+    "dsaabigail_flower",
 }
 
 local MAX_TARGET_SHARES = 5
 local SHARE_TARGET_DIST = 30
 
-local function onupdate(inst, dt)
+local function OnUpdate(inst, dt)
 	inst.charge_time = inst.charge_time - dt
 	if inst.charge_time <= 0 then
 		inst.charge_time = 0
@@ -106,7 +106,7 @@ local function onupdate(inst, dt)
 	end
 end
 
-local onloadfn = function(inst, data)
+local OnLoadFn = function(inst, data)
 	if data then
 		if data.sleeping then
 			if data.bedroll == 'straw' then
@@ -121,18 +121,18 @@ local onloadfn = function(inst, data)
 		if data.charge_time then
 			inst.AnimState:SetBloomEffectHandle( "shaders/anim.ksh" )
 
-			onupdate(inst, 0)
-			inst.charged_task = inst:DoPeriodicTask(1, onupdate, nil, 1)
+			OnUpdate(inst, 0)
+			inst.charged_task = inst:DoPeriodicTask(1, OnUpdate, nil, 1)
 		end
 	end
 end
 
-local onsavefn = function(inst, data)
+local OnSaveFn = function(inst, data)
 	if inst.components.sleeper:IsAsleep() then
 		data.sleeping = true
 		data.bedroll = inst.bedroll
 	end
-	if inst.prefab == 'ynawx78' then
+	if inst.prefab == 'dsawx78' then
 		data.level = inst.level
 		data.charge_time = inst.charge_time
 	end
@@ -196,9 +196,9 @@ local function ShouldAcceptItem(inst, item)
 		return false
 	end
 	
-	if item.prefab == 'axe' and inst.prefab == 'ynawoodie' and (inst.components.inventory:Has('ynalucy', 1) or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == 'ynalucy') then
+	--[[if item.prefab == 'axe' and inst.prefab == 'dsawoodie' and (inst.components.inventory:Has('dsalucy', 1) or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab == 'dsalucy') then
 		return false
-	end
+	end]]
 	
 	if item.prefab == 'bedroll_straw' or item.prefab == 'bedroll_furry' then
 		if inst:HasTag('insomniac') then
@@ -224,6 +224,21 @@ local function ShouldAcceptItem(inst, item)
 	return true	
 end
 
+local function TryToEat(inst, item) 		
+	if item.prefab == 'spoiled_food' or item.prefab == "rottenegg" or item.prefab == 'petals' or item.prefab == 'petals_evil' or item.prefab == "cutlichen" or (inst.prefab ~= 'dsawx78' and item.components.edible.foodtype == "GEARS") or (inst.prefab == 'dsawickerbottom' and (item.prefab == 'bird_egg' or item.prefab == 'seeds')) then
+		return
+	end
+	--No raw meats unless starving
+	if not inst.components.hunger:IsStarving() and (item.prefab == 'smallmeat' or item.prefab == 'batwing' or item.prefab == 'drumstick' or item.prefab == 'froglegs' or item.prefab == 'plantmeat' or item.prefab == 'meat' or item.prefab == 'monstermeat' or item.prefab == 'cactus_meat' or item.prefab == 'durian' or item.prefab == 'minotaurhorn' or item.prefab == 'deerclops_eyeball') then
+		return
+	end
+	
+	if inst.components.eater:CanEat(item) then
+		local ba = BufferedAction(inst, item, ACTIONS.EAT) 
+		inst:PushBufferedAction(ba)
+	end
+end
+
 local function OnGetItemFromPlayer(inst, giver, item)
     if item.components.equippable and (item.components.equippable.equipslot == EQUIPSLOTS.HEAD or item.components.equippable.equipslot == EQUIPSLOTS.HANDS or item.components.equippable.equipslot == EQUIPSLOTS.BODY) then    
 		local newslot = item.components.equippable.equipslot
@@ -233,11 +248,7 @@ local function OnGetItemFromPlayer(inst, giver, item)
         --end      
         inst.components.inventory:Equip(item)
 	elseif item.components.edible then
-		if inst.prefab == 'ynawickerbottom' and (item.prefab == 'bird_egg' or item.prefab == 'seeds') then
-			return
-		else
-			inst.components.eater:Eat(item) 
-		end
+		TryToEat(inst, item)
     elseif item.prefab == 'bedroll_straw' then
 		inst.bedroll = 'straw'
 		inst.AnimState:OverrideSymbol("swap_bedroll", "swap_bedroll_straw", "bedroll_straw")
@@ -254,17 +265,7 @@ local function OnGetItemFromPlayer(inst, giver, item)
 			item:Remove()
 		end
 	elseif item.components.book then
-		if item.prefab == 'ynabook_birds' then
-			inst.read = 'ynabook_birds' 
-		elseif item.prefab == 'ynabook_tentacles' then
-			inst.read = 'ynabook_tentacles' 
-		elseif item.prefab == 'ynabook_gardening' then
-			inst.read = 'ynabook_gardening' 
-		elseif item.prefab == 'ynabook_brimstone' then
-			inst.read = 'ynabook_brimstone' 
-		elseif item.prefab == 'ynabook_sleep' then
-			inst.read = 'ynabook_sleep' 
-		end
+		inst.read = item.prefab
     end
 end
 
@@ -275,7 +276,6 @@ local function OnRefuseItem(inst, giver, item)
 			if GetWorld():IsCave() then
 				tosay = "ANNOUNCE_NODAYSLEEP_CAVE"
 			end
-			
 			inst.components.talker:Say(GetString(inst.prefab, tosay))
 		end
 		local danger = FindEntity(inst, 10, function(target) return target:HasTag("monster") or target.components.combat and target.components.combat.target == inst end)
@@ -291,12 +291,6 @@ local function OnRefuseItem(inst, giver, item)
 		if inst.components.hunger.current < TUNING.CALORIES_MED then
 			inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_NOHUNGERSLEEP"))
 		end
-	elseif item.prefab == 'axe' then
-		local lucy = inst.components.inventory:FindItem(function(item) return item.prefab == 'ynalucy' end)
-		if lucy then
-			inst.components.talker:Say(STRINGS.YNAWOODIE.NOAXE)
-			inst.components.inventory:Equip(lucy)
-		end
 	elseif item.components.edible then
 		inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_EAT", "INVALID"))
 	else
@@ -305,18 +299,14 @@ local function OnRefuseItem(inst, giver, item)
 end
 
 local function NormalRetargetFn(inst)
-    return FindEntity(inst, TUNING.PIG_TARGET_DIST,
-        function(guy) 
-			if guy.components.health and not guy.components.health:IsDead() and inst.components.combat:CanTarget(guy) then
-                if guy:HasTag("monster") and guy.prefab ~= "webber" then
-					return guy
-				end
-				if inst.components.sanity:GetPercent() == 0 and (guy:HasTag('player') or guy:HasTag('summonedbyplayer')) then
-					inst:RemoveTag('summonedbyplayer')
-					return guy
-				end
-			end
-        end)
+
+    local newtarget = FindEntity(inst, 20, function(guy)
+            return  guy.components.combat and 
+                    inst.components.combat:CanTarget(guy) and
+                    (guy.components.combat.target == GetPlayer() or GetPlayer().components.combat.target == guy)
+    end)
+
+    return newtarget
 end
 
 local function NormalKeepTargetFn(inst, target)
@@ -395,7 +385,7 @@ local function BecomeBeaver(inst)
 end
 
 --[[WOLFGANG]]
-local function applymightiness(inst)
+local function ApplyMightiness(inst)
 
 	local percent = inst.components.hunger:GetPercent()
 	
@@ -435,7 +425,7 @@ local function applymightiness(inst)
 
 end
 
-local function onhungerchange(inst, data)
+local function OnHungerChange(inst, data)
 
 	local silent = POPULATING
 
@@ -489,11 +479,11 @@ local function onhungerchange(inst, data)
 		end
 	end
 
-	applymightiness(inst)
+	ApplyMightiness(inst)
 end
 
 --[[WILLOW]]
-local function sanityfn(inst)
+local function SanityFn(inst)
 	local x,y,z = inst.Transform:GetWorldPosition()	
 	local delta = 0
 	local max_rad = 10
@@ -512,7 +502,7 @@ local function sanityfn(inst)
 end
 
 --[[WX-78]]
-local function applyupgrades(inst)
+local function ApplyUpgrades(inst)
 	local max_upgrades = 15
 	local upgrades = math.min(inst.level, max_upgrades)
 
@@ -529,20 +519,20 @@ local function applyupgrades(inst)
 	inst.components.sanity:SetPercent(sanity_percent)
 end
 
-local function oneat(inst, food)
+local function OnEat(inst, food)
 	if food and food.components.edible and food.components.edible.foodtype == "GEARS" then
 		--give an upgrade!
 		inst.level = inst.level + 1
-		applyupgrades(inst)	
+		ApplyUpgrades(inst)	
 		inst.SoundEmitter:PlaySound("dontstarve/characters/wx78/levelup")
 	end
 end
 
-local function onpreload(inst, data)
+local function OnPreload(inst, data)
 	if data then
 		if data.level then
 			inst.level = data.level
-			applyupgrades(inst)
+			ApplyUpgrades(inst)
 			--re-set these from the save data, because of load-order clipping issues
 			if data.health and data.health.health then inst.components.health.currenthealth = data.health.health end
 			if data.hunger and data.hunger.hunger then inst.components.hunger.current = data.hunger.hunger end
@@ -554,7 +544,7 @@ local function onpreload(inst, data)
 	end
 end
 
-local function onlightingstrike(inst)
+local function OnLightningStrike(inst)
 	if inst.components.health and not inst.components.health:IsDead() then
 		local protected = false
 	    if inst.components.inventory:IsInsulated() then
@@ -574,8 +564,8 @@ local function onlightingstrike(inst)
 			inst.AnimState:SetBloomEffectHandle( "shaders/anim.ksh" )
 			
 			if not inst.charged_task then
-				onupdate(inst, 0)
-				inst.charged_task = inst:DoPeriodicTask(1, onupdate, nil, 1)
+				OnUpdate(inst, 0)
+				inst.charged_task = inst:DoPeriodicTask(1, OnUpdate, nil, 1)
 			end
 		else
 			inst:PushEvent("lightningdamageavoided")
@@ -583,7 +573,7 @@ local function onlightingstrike(inst)
 	end
 end
 
-local function dorainsparks(inst, dt)
+local function DoRainSparks(inst, dt)
 	local mitigates_rain = false
 	for k,v in pairs (inst.components.inventory.equipslots) do
 		if v.components.dapperness then
@@ -618,7 +608,6 @@ local function common()
 	local shadow = inst.entity:AddDynamicShadow()
 	local player = GetPlayer()
 	
-	inst.actionbuffer = 0
 	inst.bedroll = nil
 	shadow:SetSize( 1.3, .6 )
     inst.Transform:SetFourFaced()
@@ -687,7 +676,8 @@ local function common()
 
     inst:AddComponent("follower")
     inst.components.follower.maxfollowtime = 99999999
-    player.components.leader:AddFollower(inst)
+	inst.components.follower:SetLeader(player)
+    --player.components.leader:AddFollower(inst)
 	inst.components.follower:AddLoyaltyTime(9999999)
     ------------------------------------------
     inst:AddComponent("talker")
@@ -699,10 +689,6 @@ local function common()
    
     inst:SetBrain(brain)
 	
-    if ACTIONS.SITCOMMAND ~= nil then
-    	inst:AddComponent("followersitcommand")
-    end
-
     inst:AddComponent("lootdropper")
 
     inst:AddComponent("trader")
@@ -726,6 +712,8 @@ local function common()
    
 	inst:AddComponent("playerlightningtarget")
 	
+    inst:AddComponent("followercommands")
+	
     inst:ListenForEvent("attacked", OnAttacked)    
     inst:ListenForEvent("onattackother", OnAttackOther)
     inst:ListenForEvent("newcombattarget", OnNewTarget)
@@ -747,8 +735,8 @@ local function common()
 			inst.components.temperature:SetTemperature(inst.components.temperature.maxtemp)
 	    end
 	end, GetWorld())
-	inst.OnSave = onsavefn
-	inst.OnLoad = onloadfn
+	inst.OnSave = OnSaveFn
+	inst.OnLoad = OnLoadFn
     return inst
 end
 
@@ -783,7 +771,7 @@ local function woodie()
 		return str
 	end
 
-	inst.components.lootdropper:SetLoot({"ynawoodieskull"})
+	inst.components.lootdropper:SetLoot({"dsawoodieskull"})
 	inst:AddComponent("beaverness")		
 	inst.components.beaverness.makeperson = BecomeWoodie
 	inst.components.beaverness.makebeaver = BecomeBeaver
@@ -799,7 +787,7 @@ local function woodie()
 	BecomeWoodie(inst)
 
     inst:ListenForEvent("nighttime", function(global, data)
-	    if --[[GetClock():GetMoonPhase() == "full" and]] not inst.components.beaverness:IsBeaver() and not inst.components.beaverness.ignoremoon and not inst.components.sleeper.isasleep then
+	    if GetClock():GetMoonPhase() == "full" and not inst.components.beaverness:IsBeaver() and not inst.components.beaverness.ignoremoon and not inst.components.sleeper.isasleep then
 	        if not inst.components.beaverness.doing_transform then
 				inst.components.beaverness:SetPercent(1)
 			end
@@ -843,14 +831,14 @@ local function wolfgang()
 		return str
 	end
 	
-	inst.components.lootdropper:SetLoot({"ynawolfgangskull"})
+	inst.components.lootdropper:SetLoot({"dsawolfgangskull"})
 	
 	inst.strength = "normal"
    	inst.components.hunger:SetMax(TUNING.WOLFGANG_HUNGER)
 	inst.components.hunger.current = TUNING.WOLFGANG_START_HUNGER
-	applymightiness(inst)
+	ApplyMightiness(inst)
 	
-	inst:ListenForEvent("hungerdelta", onhungerchange)
+	inst:ListenForEvent("hungerdelta", OnHungerChange)
     return inst
 end
 
@@ -865,7 +853,7 @@ local function willow()
 	inst.components.inventory:GuaranteeItems(willow_inv)
 	
 	inst.components.sanity:SetMax(TUNING.WILLOW_SANITY)
-	inst.components.sanity.custom_rate_fn = sanityfn
+	inst.components.sanity.custom_rate_fn = SanityFn
 	
 	function inst.components.combat:GetBattleCryString(target)
 		return target ~= nil
@@ -893,10 +881,10 @@ local function willow()
 	inst.components.firebug.prefab = "willowfire"
 	inst.components.health.fire_damage_scale = 0
 	
-	inst.components.lootdropper:SetLoot({"ynawillowskull"})
+	inst.components.lootdropper:SetLoot({"dsawillowskull"})
 	
     --[[inst:ListenForEvent("nighttime", function(it, data) 	
-		local lighter = inst.components.inventory:FindItem(function(item) return item.prefab == "ynalighter" end)
+		local lighter = inst.components.inventory:FindItem(function(item) return item.prefab == "dsalighter" end)
 
 		if lighter and (not inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) or inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS).prefab ~= lighter.prefab) then
 			inst.components.inventory:Equip(lighter)
@@ -917,7 +905,7 @@ local function wickerbottom()
 	inst.read = false
 	
 	inst.components.sanity:SetMax(TUNING.WILLOW_SANITY)
-	inst.components.sanity.custom_rate_fn = sanityfn
+	inst.components.sanity.custom_rate_fn = SanityFn
 	
 	function inst.components.combat:GetBattleCryString(target)
 		return target ~= nil
@@ -941,7 +929,7 @@ local function wickerbottom()
 		return str
 	end
 	
-	inst.components.lootdropper:SetLoot({"ynawickerbottomskull"})
+	inst.components.lootdropper:SetLoot({"dsawickerbottomskull"})
 	
 	inst:AddComponent("reader")
 	
@@ -990,15 +978,15 @@ local function wx78()
 		return str
 	end
 	
-	inst.components.lootdropper:SetLoot({"ynawx78skull"})
+	inst.components.lootdropper:SetLoot({"dsawx78skull"})
 	
 	inst.components.eater.ignoresspoilage = true
 	table.insert(inst.components.eater.foodprefs, "GEARS")
-	inst.components.eater:SetOnEatFn(oneat)
-	applyupgrades(inst)
+	inst.components.eater:SetOnEatFn(OnEat)
+	ApplyUpgrades(inst)
 
 	inst.components.playerlightningtarget:SetHitChance(.1)
-	inst.components.playerlightningtarget:SetOnStrikeFn(onlightingstrike)
+	inst.components.playerlightningtarget:SetOnStrikeFn(OnLightningStrike)
 	inst:AddTag("electricdamageimmune") --This is for combat, not lightning strikes
 	
     local light = inst.entity:AddLight()
@@ -1012,8 +1000,8 @@ local function wx78()
 		inst.charge_time = math.max(0, inst.charge_time - dt)
 	end
 
-	inst:DoPeriodicTask(1/10, function() dorainsparks(inst, 1/10) end)
-	inst.OnPreLoad = onpreload
+	inst:DoPeriodicTask(1/10, function() DoRainSparks(inst, 1/10) end)
+	inst.OnPreload = OnPreload
 	return inst
 end
 
@@ -1048,7 +1036,7 @@ local function wendy()
 		return str
 	end
 	
-	inst.components.lootdropper:SetLoot({"ynawendyskull"})
+	inst.components.lootdropper:SetLoot({"dsawendyskull"})
 
 	inst.components.sanity.night_drain_mult = TUNING.WENDY_SANITY_MULT
     inst.components.sanity.neg_aura_mult = TUNING.WENDY_SANITY_MULT
@@ -1059,7 +1047,7 @@ local function wendy()
     inst:DoTaskInTime(0, function() 
     		local found = false
     		for k,v in pairs(Ents) do
-    			if v.prefab == "ynaabigail" then
+    			if v.prefab == "dsaabigail" then
     				found = true
     				break
     			end
@@ -1072,9 +1060,33 @@ local function wendy()
 	return inst
 end
 
-return Prefab("common/ynawoodie", woodie, assets),
-	Prefab("common/ynawolfgang", wolfgang, assets),
-	Prefab("common/ynawillow", willow, assets),
-	Prefab("common/ynawickerbottom", wickerbottom, assets),
-	Prefab("common/ynawx78", wx78, assets),
-	Prefab("common/ynawendy", wendy, assets)
+
+local function wes()
+	local inst = common()
+    local minimap = inst.entity:AddMiniMapEntity()
+    minimap:SetIcon("wes.png")
+    minimap:SetPriority( 10 )
+    inst:AddTag("wes")
+	inst.AnimState:SetBuild("wes")
+	inst.desc = "Wes, the silent."
+	
+	inst.components.lootdropper:SetLoot({"dsawesskull"})
+
+	inst.components.health:SetMaxHealth(TUNING.WILSON_HEALTH * .75 )
+	inst.components.hunger:SetMax(TUNING.WILSON_HUNGER * .75 )
+	inst.components.combat.damagemultiplier = .75
+	inst.components.hunger:SetRate(TUNING.WILSON_HUNGER_RATE*1.25)
+	inst.components.sanity:SetMax(TUNING.WILSON_SANITY*.75)
+	--inst.components.inventory:GuaranteeItems(start_inv)
+	inst.components.talker.special_speech = true
+		
+	return inst
+end
+
+return Prefab("common/dsawoodie", woodie, assets),
+	Prefab("common/dsawolfgang", wolfgang, assets),
+	Prefab("common/dsawillow", willow, assets),
+	Prefab("common/dsawickerbottom", wickerbottom, assets),
+	Prefab("common/dsawx78", wx78, assets),
+	Prefab("common/dsawendy", wendy, assets),
+	Prefab("common/dsawes", wes, assets)

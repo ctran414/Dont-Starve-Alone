@@ -6,7 +6,7 @@ local assets =
 	--Asset("ANIM", "anim/willow.zip"),
 }
 
-local function SummonWoodie(inst, target, item)
+local function SummonFollower(inst, target, item)
     inst:AddTag("lightningrod")
     inst.lightningpriority = 100
 
@@ -28,8 +28,8 @@ local function SummonWoodie(inst, target, item)
 	summon.Transform:SetPosition(inst:GetPosition():Get())
 	light.Transform:SetPosition(inst:GetPosition():Get())
 	light:TurnOn()
-	summon.components.followersitcommand:SetStaying(true)
-	summon.components.followersitcommand:RememberSitPos("currentstaylocation", Point(summon.Transform:GetWorldPosition())) 
+	summon.components.followercommands:SetStaying(true)
+	summon.components.followercommands:RememberSitPos("currentstaylocation", Point(summon.Transform:GetWorldPosition())) 
 	summon.AnimState:PlayAnimation("sleep", true)
 	summon:DoTaskInTime(0, function(summon) summon.SoundEmitter:PlaySound("dontstarve_DLC001/characters/webber/appear") end)
 
@@ -53,7 +53,7 @@ local function SummonWoodie(inst, target, item)
 end
 
 local function StartSummonSequence(inst, target, item)
-	inst.SummmonSequence = inst:StartThread(function() SummonWoodie(inst, target, item) end) 
+	inst.SummmonSequence = inst:StartThread(function() SummonFollower(inst, target, item) end) 
 end
 
 local function OnBury(inst, hole, doer)
@@ -93,7 +93,7 @@ local function woodie()
     local inst = common()
     inst.AnimState:PlayAnimation("f12")
 	inst:AddTag("woodieskull")
-	inst.char = "ynawoodie"
+	inst.char = "dsawoodie"
 	inst.model = "woodie"
 	inst.components.inventoryitem:ChangeImageName("skull_woodie")
     return inst
@@ -103,7 +103,7 @@ local function wolfgang()
     local inst = common()
     inst.AnimState:PlayAnimation("f15")
 	inst:AddTag("wolfgangskull")
-	inst.char = "ynawolfgang"
+	inst.char = "dsawolfgang"
 	inst.model = "wolfgang"
 	inst.components.inventoryitem:ChangeImageName("skull_wolfgang")
     return inst
@@ -112,8 +112,8 @@ end
 local function willow()
     local inst = common()
     inst.AnimState:PlayAnimation("f2")
-	inst:AddTag("ynawillowskull")
-	inst.char = "ynawillow"
+	inst:AddTag("dsawillowskull")
+	inst.char = "dsawillow"
 	inst.model = "willow"
 	inst.components.inventoryitem:ChangeImageName("skull_willow")
     return inst
@@ -122,8 +122,8 @@ end
 local function wickerbottom()
     local inst = common()
     inst.AnimState:PlayAnimation("f13")
-	inst:AddTag("ynawickerbottomskull")
-	inst.char = "ynawickerbottom"
+	inst:AddTag("dsawickerbottomskull")
+	inst.char = "dsawickerbottom"
 	inst.model = "wickerbottom"
 	inst.components.inventoryitem:ChangeImageName("skull_wickerbottom")
     return inst
@@ -132,8 +132,8 @@ end
 local function wx78()
     local inst = common()
     inst.AnimState:PlayAnimation("f3")
-	inst:AddTag("ynawx78skull")
-	inst.char = "ynawx78"
+	inst:AddTag("dsawx78skull")
+	inst.char = "dsawx78"
 	inst.model = "wx78"
 	inst.components.inventoryitem:ChangeImageName("skull_wx78")
     return inst
@@ -142,8 +142,8 @@ end
 local function wendy()
     local inst = common()
     inst.AnimState:PlayAnimation("f14")
-	inst:AddTag("ynawendyskull")
-	inst.char = "ynawendy"
+	inst:AddTag("dsawendyskull")
+	inst.char = "dsawendy"
 	inst.model = "wendy"
 	inst.components.inventoryitem:ChangeImageName("skull_wendy")
     return inst
@@ -152,8 +152,8 @@ end
 local function wes()
     local inst = common()
     inst.AnimState:PlayAnimation("f6")
-	inst:AddTag("ynawesskull")
-	inst.char = "ynawes"
+	inst:AddTag("dsawesskull")
+	inst.char = "dsawes"
 	inst.model = "wes"
 	inst.components.inventoryitem:ChangeImageName("skull_wes")
     return inst
@@ -162,18 +162,18 @@ end
 local function wilson()
     local inst = common()
     inst.AnimState:PlayAnimation("f1")
-	inst:AddTag("ynawilsonskull")
-	inst.char = "ynawilson"
+	inst:AddTag("dsawilsonskull")
+	inst.char = "dsawilson"
 	inst.model = "wilson"
 	inst.components.inventoryitem:ChangeImageName("skull_wilson")
     return inst
 end
 
-return Prefab("common/inventory/ynawoodieskull", woodie, assets),
-		Prefab("common/inventory/ynawolfgangskull", wolfgang, assets),
-		Prefab("common/inventory/ynawillowskull", willow, assets),
-		Prefab("common/inventory/ynawickerbottomskull", wickerbottom, assets),
-		Prefab("common/inventory/ynawx78skull", wx78, assets),
-		Prefab("common/inventory/ynawendyskull", wendy, assets),
-		Prefab("common/inventory/ynawesskull", wes, assets),
-		Prefab("common/inventory/ynawilsonskull", wilson, assets)
+return Prefab("common/inventory/dsawoodieskull", woodie, assets),
+		Prefab("common/inventory/dsawolfgangskull", wolfgang, assets),
+		Prefab("common/inventory/dsawillowskull", willow, assets),
+		Prefab("common/inventory/dsawickerbottomskull", wickerbottom, assets),
+		Prefab("common/inventory/dsawx78skull", wx78, assets),
+		Prefab("common/inventory/dsawendyskull", wendy, assets),
+		Prefab("common/inventory/dsawesskull", wes, assets),
+		Prefab("common/inventory/dsawilsonskull", wilson, assets)
