@@ -83,24 +83,9 @@ local events=
 			inst.sg:GoToState("talk", data.noanim)
         end     
     end),
-	EventHandler("oneatsomething", function(inst, data)
-		if inst.sg:HasStateTag("busy") then
-			return nil
-		end
-		local obj = data.food
-		if not (obj and obj.components.edible) then
-			return nil
-		end
-		if obj.components.edible.foodtype == "MEAT" then
-			inst.sg:GoToState("eat")
-		else
-			inst.sg:GoToState("quickeat")
-		end
-	end),
     EventHandler("attacked", function(inst) if not inst.components.health:IsDead() and not inst.sg:HasStateTag("attack") then inst.sg:GoToState("hit") end end),
     EventHandler("death", function(inst) inst.sg:GoToState("death") end),
     EventHandler("doattack", function(inst) if not inst.components.health:IsDead() then inst.sg:GoToState("attack") end end),
-
 	EventHandler("equip", function(inst, data)
         if inst.sg:HasStateTag("idle") then
 			if data.eslot == EQUIPSLOTS.HANDS then
@@ -173,12 +158,18 @@ local states=
             
             local anim = "idle_loop"
             
-            if not inst:HasTag("beaver") and not inst.components.sanity:IsSane() then
+			if inst:HasTag("beaver") then
+				table.insert(anims, "idle_loop")
+			elseif not inst.components.sanity:IsSane() then
 				table.insert(anims, "idle_sanity_pre")
 				table.insert(anims, "idle_sanity_loop")
-			elseif not inst:HasTag("beaver") and inst.components.temperature:IsFreezing() then
+			elseif inst.components.temperature:IsFreezing() then
 				table.insert(anims, "idle_shiver_pre")
 				table.insert(anims, "idle_shiver_loop")
+            elseif inst.components.temperature:IsOverheating() then
+                --plug in overheats once they're done
+                table.insert(anims, "idle_hot_pre")
+                table.insert(anims, "idle_hot_loop")  
 			else
 				table.insert(anims, "idle_loop")
 			end
@@ -200,28 +191,33 @@ local states=
         end,
         
         ontimeout= function(inst)
+            if inst.components.temperature:GetCurrent() > 70 then
+                return 
+            end
             inst.sg:GoToState("funnyidle")
         end,
     },
 	
 	State{      
         name = "funnyidle",
-        tags = {"idle"},
+        tags = {"idle", "canrotate"},
         onenter = function(inst)       
 			
-			if not inst:HasTag("beaver") then
-				if inst.components.temperature:GetCurrent() < 5 then
-					inst.AnimState:PlayAnimation("idle_shiver_pre")
-					inst.AnimState:PushAnimation("idle_shiver_loop")
-					inst.AnimState:PushAnimation("idle_shiver_pst", false)
-				elseif inst.components.hunger:GetPercent() < TUNING.HUNGRY_THRESH then
-					inst.AnimState:PlayAnimation("hungry")
-					inst.SoundEmitter:PlaySound("dontstarve/wilson/hungry")    
-				elseif inst.components.sanity:GetPercent() < .5 then
-					inst.AnimState:PlayAnimation("idle_inaction_sanity")
-				else
-					inst.AnimState:PlayAnimation("idle_inaction")
-				end
+			if inst:HasTag("beaver") then
+				inst.AnimState:PlayAnimation("idle_inaction")
+			elseif inst.components.temperature:GetCurrent() < 10 then
+				inst.AnimState:PlayAnimation("idle_shiver_pre")
+				inst.AnimState:PushAnimation("idle_shiver_loop")
+				inst.AnimState:PushAnimation("idle_shiver_pst", false)
+			elseif inst.components.temperature:GetCurrent() > 60 then
+				inst.AnimState:PlayAnimation("idle_hot_pre")
+				inst.AnimState:PushAnimation("idle_hot_loop")
+				inst.AnimState:PushAnimation("idle_hot_pst", false)
+			elseif inst.components.hunger:GetPercent() < TUNING.HUNGRY_THRESH then
+				inst.AnimState:PlayAnimation("hungry")
+				inst.SoundEmitter:PlaySound("dontstarve/wilson/hungry")    
+			elseif inst.components.sanity:GetPercent() < .5 then
+				inst.AnimState:PlayAnimation("idle_inaction_sanity")
 			else
 				inst.AnimState:PlayAnimation("idle_inaction")
 			end
@@ -372,7 +368,7 @@ local states=
         tags = {"prechop", "chopping", "working"},
         onenter = function(inst)
             inst.components.locomotor:Stop()
-			if inst.prefab == "ynawoodie" then
+			if inst.prefab == "dsawoodie" then
 				inst.AnimState:PlayAnimation("woodie_chop_pre")
 			else
 				inst.AnimState:PlayAnimation("chop_pre")
@@ -392,7 +388,7 @@ local states=
         
         onenter = function(inst)
             inst.Physics:Stop()
-			if inst.prefab == "ynawoodie" then
+			if inst.prefab == "dsawoodie" then
 				inst.AnimState:PlayAnimation("woodie_chop_loop")
 			else
 				inst.AnimState:PlayAnimation("chop_loop")
@@ -402,36 +398,24 @@ local states=
         timeline=
         {
 			TimeEvent(2*FRAMES, function(inst) 
-									if inst.prefab == "ynawoodie" then 
+									if inst.prefab == "dsawoodie" then 
 										inst:PerformBufferedAction() 
 									end 
 								end),
-			TimeEvent(5*FRAMES, function(inst) inst:PerformBufferedAction() end),
-            TimeEvent(5*FRAMES, function(inst) if inst.prefab == "ynawoodie" then 
+			TimeEvent(5*FRAMES, function(inst) 
+									if inst.prefab ~= "dsawoodie" then 
+										inst:PerformBufferedAction() 
+									end
+								end),
+            TimeEvent(9*FRAMES, function(inst) if inst.prefab == "dsawoodie" then 
 										inst.sg:RemoveStateTag("prechop") 
 									end 
 								end),
-            TimeEvent(9*FRAMES, function(inst) inst.sg:RemoveStateTag("prechop") end),
-            TimeEvent(10*FRAMES, function(inst) if inst.prefab == "ynawoodie" and 
-					inst.sg.statemem.action and 
-                    inst.sg.statemem.action:IsValid() and 
-                    inst.sg.statemem.action.target and 
-                    inst.sg.statemem.action.target:IsActionValid(inst.sg.statemem.action.action) and 
-                    inst.sg.statemem.action.target.components.workable then
-                        inst:ClearBufferedAction()
-                        inst:PushBufferedAction(inst.sg.statemem.action)
-                end
-            end),
-            TimeEvent(14*FRAMES, function(inst)
-                if inst.sg.statemem.action and 
-                    inst.sg.statemem.action:IsValid() and 
-                    inst.sg.statemem.action.target and 
-                    inst.sg.statemem.action.target:IsActionValid(inst.sg.statemem.action.action) and 
-                    inst.sg.statemem.action.target.components.workable then
-                        inst:ClearBufferedAction()
-                        inst:PushBufferedAction(inst.sg.statemem.action)
-                end
-            end),
+            TimeEvent(12*FRAMES, function(inst) if inst.prefab ~= "dsawoodie" then 
+										inst.sg:RemoveStateTag("prechop")
+									end 
+								end),
+
             TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("chopping") end),
         },
         
@@ -465,25 +449,18 @@ local states=
 
         timeline=
         {
-            TimeEvent(9*FRAMES, function(inst) 
+            TimeEvent(12*FRAMES, function(inst) 
                 if inst.sg.statemem.action and inst.sg.statemem.action.target then
 					local fx = SpawnPrefab("mining_fx")
 					fx.Transform:SetPosition(inst.sg.statemem.action.target:GetPosition():Get())
+					print('fx',GetTime())
 				end
                 inst:PerformBufferedAction() 
                 inst.sg:RemoveStateTag("premine") 
                 inst.SoundEmitter:PlaySound("dontstarve/wilson/use_pick_rock")
             end),
             
-            TimeEvent(14*FRAMES, function(inst)
-				if inst.sg.statemem.action and 
-					inst.sg.statemem.action.target and 
-					inst.sg.statemem.action.target:IsActionValid(inst.sg.statemem.action.action) and 
-					inst.sg.statemem.action.target.components.workable then
-						inst:ClearBufferedAction()
-						inst:PushBufferedAction(inst.sg.statemem.action)
-				end
-            end),
+            TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("mining") end),
             
         },
         
@@ -846,7 +823,7 @@ local states=
             EventHandler("animover", function(inst) 	
 				local skeleton = SpawnPrefab("skeleton")
 				local spawnPoint = inst:GetPosition()
-				skeleton.components.lootdropper:SetLoot({"ynawoodieskull"})
+				skeleton.components.lootdropper:SetLoot({"dsawoodieskull"})
 				skeleton.Transform:SetPosition(spawnPoint:Get())
 			end ),
         }, ]]
@@ -1131,10 +1108,10 @@ local states=
 
             local pos = inst:GetPosition()
             inst.fx.Transform:SetPosition(pos.x, pos.y, pos.z)
-            if inst.prefab ~= "ynawx78" then
+            if inst.prefab ~= "dsawx78" then
                 --inst.Light:Enable(true)
             end
-            if inst.prefab ~= "ynawes" then
+            if inst.prefab ~= "dsawes" then
 				local sound_name = string.sub(inst.prefab, 4)
                 local path = inst.talker_path_override or "dontstarve/characters/"
                 local sound_event = path..sound_name.."/hurt"
