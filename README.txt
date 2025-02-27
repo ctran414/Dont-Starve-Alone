@@ -1,4 +1,3 @@
-# dont-starve-alone-mod
 Resurrect other main characters as followers. Feed them, keep them alive, and they will help you survive the world. 
 
 If you are playing a certain character, that character will not be available for you to resurrect.
