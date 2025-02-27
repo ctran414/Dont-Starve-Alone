@@ -216,7 +216,7 @@ local function ShouldAcceptItem(inst, item)
 		end
 	end
 	
-	if item.components.edible and item.components.edible.foodtype ~= "MEAT" and inst.prefab == "dsawathgrithr" then
+	if (item:HasTag("preparedfood") or string.match(item.prefab, "cooked")) and item.components.edible.foodtype ~= "MEAT" and inst.prefab == "dsawathgrithr" then
 		return false
 	end
 	
