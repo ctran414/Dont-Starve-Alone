@@ -51,6 +51,9 @@ local function fn(Sim)
     anim:SetBuild("lighter")
     anim:PlayAnimation("idle")
     MakeInventoryPhysics(inst)
+	if IsDLCEnabled(CAPY_DLC) then
+		MakeInventoryFloatable(inst, "idle_water", "idle")
+	end
     inst:AddTag("irreplaceable")
 
     local minimap = inst.entity:AddMiniMapEntity()
@@ -75,6 +78,8 @@ local function fn(Sim)
     inst:AddComponent("inventoryitem")
 	inst.components.inventoryitem:ChangeImageName("lighter")
     -----------------------------------
+    inst:AddComponent("dsacharacterspecific")
+    inst.components.dsacharacterspecific:SetOwner("dsawillow")
     
     inst:AddComponent("equippable")
     inst.components.equippable:SetOnPocket( function(owner) inst.components.burnable:Extinguish()  end)
@@ -96,8 +101,6 @@ local function fn(Sim)
     inst.components.burnable.fxprefab = nil
     --inst.components.burnable:AddFXOffset(Vector3(0,1.5,-.01))
     
-    -----------------------------------
-    --inst:DoTaskInTime(0, function() if not GetPlayer() or GetPlayer().prefab ~= "willow" then inst:Remove() end end)
     return inst
 end
 

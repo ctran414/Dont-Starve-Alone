@@ -1,13 +1,17 @@
+local function GetWoodie()
+    return TheSim:FindFirstEntityWithTag("woodie")
+end
+
 local LucyTalk = Class(function(self, inst)
     self.inst = inst
     self.time_to_convo = 10
 
     self.inst:ListenForEvent("ondropped", function() self:OnDropped() end)
     self.inst:ListenForEvent("equipped", function(_, data) self:OnEquipped(data.owner) end)
-    self.inst:ListenForEvent("finishedwork", function(_, data) self:OnFinishedWork(data.target, data.action) end, GetPlayer())
-    --self.inst:ListenForEvent("beavernessdelta", function(_, data) self:OnBeaverDelta(data.oldpercent, data.newpercent) end, GetPlayer())
-    --self.inst:ListenForEvent("beaverstart", function(_, data) self:OnBecomeBeaver() end, GetPlayer())
-    --self.inst:ListenForEvent("beaverend", function(_, data) self:OnBecomeHuman() end, GetPlayer())
+    self.inst:ListenForEvent("finishedwork", function(_, data) self:OnFinishedWork(data.target, data.action) end, GetWoodie())
+    self.inst:ListenForEvent("beavernessdelta", function(_, data) self:OnBeaverDelta(data.oldpercent, data.newpercent) end, GetWoodie())
+    self.inst:ListenForEvent("beaverstart", function(_, data) self:OnBecomeBeaver() end, GetWoodie())
+    self.inst:ListenForEvent("beaverend", function(_, data) self:OnBecomeHuman() end, GetWoodie())
     local dt = 5
     self.inst:DoPeriodicTask(dt, function() self:OnUpdate(dt) end)
     self.warnlevel = 0
@@ -16,18 +20,16 @@ end)
 
 function LucyTalk:OnFinishedWork(target, action)
     if action == ACTIONS.CHOP and 
-        self.inst.components.inventoryitem.owner == GetPlayer() and 
+        self.inst.components.inventoryitem.owner == GetWoodie() and 
         self.inst.components.equippable:IsEquipped() and
-        (GetPlayer().components.beaverness and GetPlayer().components.beaverness:GetPercent() < .25) then
+        (GetWoodie().components.beaverness and GetWoodie().components.beaverness:GetPercent() < .25) then
         self:Say(STRINGS.LUCY.on_chopped)
     end
 end
 
 function LucyTalk:OnBeaverDelta(old, new)
     
-    if GetPlayer().components.beaverness:IsBeaver() then return end
-
-
+    if GetWoodie().components.beaverness:IsBeaver() then return end
 
     if new > old then
         if new > .33 and old <= .33 and self.warnlevel < 1 then
@@ -79,7 +81,7 @@ function LucyTalk:OnDropped()
 end
 
 function LucyTalk:OnEquipped(picked_up_by)
-    if picked_up_by.prefab == "ynawoodie" then
+    if picked_up_by.prefab == "dsawoodie" then
         self:Say(STRINGS.LUCY.on_pickedup) 
 	else
         self:Say(STRINGS.LUCY.other_owner) 
@@ -107,7 +109,7 @@ function LucyTalk:MakeConversation()
     local owner = self.inst.components.inventoryitem.owner
 
     local quiplist = nil
-    if owner and owner.prefab == "ynawoodie" then
+    if owner and owner.prefab == "dsawoodie" then
         if self.inst.components.equippable:IsEquipped() then
             --currently equipped
 			quiplist = STRINGS.LUCY.equipped
@@ -117,7 +119,7 @@ function LucyTalk:MakeConversation()
     elseif owner == nil then
         --on the ground
         quiplist = STRINGS.LUCY.on_ground
-    elseif grand_owner ~= owner and grand_owner.prefab == "ynawoodie" then
+    elseif grand_owner ~= owner and grand_owner.prefab == "dsawoodie" then
         --in a backpack
         quiplist = STRINGS.LUCY.in_container
     elseif owner and owner.components.container then

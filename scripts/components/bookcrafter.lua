@@ -9,87 +9,48 @@ end)
 
 function BookCrafter:OnUpdate(dt)
     if self.inst.components.inventory:Has('papyrus', 2) and self.inst.components.inventory:Has('bird_egg', 2) then
-		self.book = 'ynabook_birds'
+		self.book = 'dsabook_birds'
 		local book = SpawnPrefab(self.book)
 		self.inst.components.inventory:GiveItem(book)
-		local ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'papyrus' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'bird_egg' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
+		self.inst.components.inventory:ConsumeByName("papyrus", 2)
+		self.inst.components.inventory:ConsumeByName("bird_egg", 2)
 		self.time_to_craft = 1
 		self.inst.sg:GoToState("dolongaction")
 		self.bookcrafted = true
 	elseif self.inst.components.inventory:Has('papyrus', 2) and self.inst.components.inventory:Has('seeds', 1) and self.inst.components.inventory:Has('poop', 1) then
-		self.book = 'ynabook_gardening'
+		self.book = 'dsabook_gardening'
 		local book = SpawnPrefab(self.book)
 		self.inst.components.inventory:GiveItem(book)
-		local ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'papyrus' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'seeds' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'poop' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
+		self.inst.components.inventory:ConsumeByName("papyrus", 2)
+		self.inst.components.inventory:ConsumeByName("seeds", 1)
+		self.inst.components.inventory:ConsumeByName("poop", 1)
 		self.time_to_craft = 1
 		self.inst.sg:GoToState("dolongaction")
 		self.bookcrafted = true
 	elseif self.inst.components.inventory:Has('papyrus', 2) and self.inst.components.inventory:Has('tentaclespots', 1) then
-		self.book = 'ynabook_tentacles'
+		self.book = 'dsabook_tentacles'
 		local book = SpawnPrefab(self.book)
 		self.inst.components.inventory:GiveItem(book)
-		local ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'papyrus' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'tentaclespots' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
+		self.inst.components.inventory:ConsumeByName("papyrus", 2)
+		self.inst.components.inventory:ConsumeByName("tentaclespots", 1)
 		self.time_to_craft = 1
 		self.inst.sg:GoToState("dolongaction")
 		self.bookcrafted = true
 	elseif self.inst.components.inventory:Has('papyrus', 2) and self.inst.components.inventory:Has('nightmarefuel', 2) then
-		self.book = 'ynabook_sleep'
+		self.book = 'dsabook_sleep'
 		local book = SpawnPrefab(self.book)
 		self.inst.components.inventory:GiveItem(book)
-		local ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'papyrus' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'nightmarefuel' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
+		self.inst.components.inventory:ConsumeByName("papyrus", 2)
+		self.inst.components.inventory:ConsumeByName("nightmarefuel", 2)
 		self.time_to_craft = 1
 		self.inst.sg:GoToState("dolongaction")
 		self.bookcrafted = true
 	elseif self.inst.components.inventory:Has('papyrus', 2) and self.inst.components.inventory:Has('redgem', 1) then
-		self.book = 'ynabook_brimstone'
+		self.book = 'dsabook_brimstone'
 		local book = SpawnPrefab(self.book)
 		self.inst.components.inventory:GiveItem(book)
-		local ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'papyrus' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end			
-		ingredient = self.inst.components.inventory:FindItem(function(item) return item.prefab == 'redgem' end)
-		if ingredient then
-			self.inst.components.inventory:RemoveItem(ingredient)
-		end
+		self.inst.components.inventory:ConsumeByName("papyrus", 2)
+		self.inst.components.inventory:ConsumeByName("redgem", 1)
 		self.time_to_craft = 1
 		self.inst.sg:GoToState("dolongaction")
 		self.bookcrafted = true

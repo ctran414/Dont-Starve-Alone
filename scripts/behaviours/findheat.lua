@@ -7,8 +7,6 @@ FindHeat = Class(BehaviourNode, function(self, inst)
     self.targ = nil
 end)
 
-
-
 function FindHeat:DBString()
     return string.format("Stay near heat %s", tostring(self.targ))
 end

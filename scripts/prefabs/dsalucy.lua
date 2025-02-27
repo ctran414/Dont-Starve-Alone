@@ -27,6 +27,9 @@ local function fn(Sim)
 	local anim = inst.entity:AddAnimState()
 	inst.entity:AddSoundEmitter()
     MakeInventoryPhysics(inst)
+	if IsDLCEnabled(CAPY_DLC) then
+		MakeInventoryFloatable(inst, "idle_water", "idle")
+	end
     
     inst:AddTag("irreplaceable")
     local minimap = inst.entity:AddMiniMapEntity()
@@ -50,11 +53,13 @@ local function fn(Sim)
     
     inst:AddComponent("inspectable")
 	inst.components.inspectable.nameoverride = "lucy"
-    inst:AddComponent("inventoryitem")
     inst:AddComponent("equippable")
     inst.components.equippable:SetOnEquip( onequip )
     inst.components.equippable:SetOnUnequip( onunequip)
 
+    inst:AddComponent("dsacharacterspecific")
+    inst.components.dsacharacterspecific:SetOwner("dsawoodie")
+	
     inst:AddComponent("talker")
     inst.components.talker.fontsize = 28
     inst.components.talker.font = TALKINGFONT

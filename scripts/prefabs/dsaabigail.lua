@@ -52,7 +52,7 @@ local function auratest(inst, target)
         if target.components.follower and target.components.follower.leader == leader then return false end
     end
 
-    return (target:HasTag("monster") or target:HasTag("prey")) and inst.components.combat:CanTarget(target)
+    return (target:HasTag("monster") or target:HasTag("prey")) and inst.components.combat:CanTarget(target) and not target:HasTag("resurrected")
 end
 
 local function updatedamage(inst)
@@ -75,7 +75,11 @@ local function fn(Sim)
 	local sound = inst.entity:AddSoundEmitter()
     local light = inst.entity:AddLight()
 
-    MakeGhostPhysics(inst, 1, .5)
+	if IsDLCEnabled(CAPY_DLC) then
+		MakeAmphibiousGhostPhysics(inst, 1, .5)
+	else
+		MakeGhostPhysics(inst, 1, .5)
+	end
     
     light:SetIntensity(.6)
     light:SetRadius(.5)
@@ -99,6 +103,7 @@ local function fn(Sim)
     inst:AddTag("noauradamage")
     inst:AddTag("notraptrigger")
     inst:AddTag("abigail")
+    inst:AddTag("amphibious")
 
     inst:AddComponent("locomotor") -- locomotor must be constructed before the stategraph
     inst.components.locomotor.walkspeed = TUNING.ABIGAIL_SPEED*.5
@@ -137,6 +142,9 @@ local function fn(Sim)
 		inst.components.follower.maxfollowtime = 99999999
 		wendy.components.leader:AddFollower(inst)
 		inst.components.follower:AddLoyaltyTime(9999999)
+	end
+	if IsDLCEnabled(CAPY_DLC) then
+		inst.components.follower:SetFollowExitDestinations({EXIT_DESTINATION.LAND,EXIT_DESTINATION.WATER})
 	end
     
 	--inst:ListenForEvent( "daytime", function(tgi, data) inst.components.health:SetVal(0) end, GetWorld())

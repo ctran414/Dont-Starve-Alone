@@ -1,15 +1,16 @@
 PrefabFiles = {
-	"followers",
-	"followerskull", --skulls need RoG
-	"ynalucy",
-	"ynalighter",
-	"ynabooks",
-	"ynaabigail",
-	"ynaabigail_flower",
-}
- 
-local Assets =
-{
+	"dsafollowers",
+	"dsafollowerskull",
+	"dsaskeleton",
+	"dsalucy",
+	"dsalighter",
+	"dsabooks",
+	"dsaabigail",
+	"dsaabigail_flower",
+	"dsaballoons_empty",
+	"dsawaxwelljournal",
+	"dsashadowwaxwell",
+	"dsashadowwaxwell_boat"
 }
 
 local STRINGS = GLOBAL.STRINGS
@@ -17,139 +18,214 @@ local TUNING = GLOBAL.TUNING
 local ACTIONS = GLOBAL.ACTIONS
 local require = GLOBAL.require
 
---[[ADD SPEECH FOR CHARACTERS]]
-STRINGS.CHARACTERS.YNAWILSON = require "speech_wilson"
-STRINGS.CHARACTERS.YNAWAXWELL = require "speech_maxwell"
-STRINGS.CHARACTERS.YNAWOLFGANG = require "speech_wolfgang"
-STRINGS.CHARACTERS.YNAWX78 = require "speech_wx78"
-STRINGS.CHARACTERS.YNAWILLOW = require "speech_willow"
-STRINGS.CHARACTERS.YNAWENDY = require "speech_wendy"
-STRINGS.CHARACTERS.YNAWOODIE = require "speech_woodie"
-STRINGS.CHARACTERS.YNAWICKERBOTTOM = require "speech_wickerbottom"
-STRINGS.CHARACTERS.WATHGRITHR = require "speech_wathgrithr"
-STRINGS.CHARACTERS.WEBBER = require "speech_webber"
-STRINGS.CHARACTERS.WALANI = require "speech_walani"
-STRINGS.CHARACTERS.WARLY = require "speech_warly"
-STRINGS.CHARACTERS.WILBUR = require "speech_wilbur"
-STRINGS.CHARACTERS.WOODLEGS = require "speech_woodlegs"
+--ADD SPEECH FOR CHARACTERS
+STRINGS.CHARACTERS.DSAWILSON = require "speech_wilson"
+STRINGS.CHARACTERS.DSAWILLOW = require "speech_willow"
+STRINGS.CHARACTERS.DSAWOLFGANG = require "speech_wolfgang"
+STRINGS.CHARACTERS.DSAWENDY = require "speech_wendy"
+STRINGS.CHARACTERS.DSAWX78 = require "speech_wx78"
+STRINGS.CHARACTERS.DSAWICKERBOTTOM = require "speech_wickerbottom"
+STRINGS.CHARACTERS.DSAWOODIE = require "speech_woodie"
+STRINGS.CHARACTERS.DSAWAXWELL = require "speech_maxwell"
+STRINGS.CHARACTERS.DSAWEBBER = require "speech_webber"
+STRINGS.CHARACTERS.DSAWATHGRITHR = require "speech_wathgrithr"
+STRINGS.CHARACTERS.DSAWALANI = require "speech_walani"
+STRINGS.CHARACTERS.DSAWARLY = require "speech_warly"
+STRINGS.CHARACTERS.DSAWILBUR = require "speech_wilbur"
+STRINGS.CHARACTERS.DSAWOODLEGS = require "speech_woodlegs"
 
--- [[ SITFOLLOWERCOMMAND BEGIN ]] -- 
-STRINGS.ACTIONS.SITCOMMAND = "Order to Wait"
-STRINGS.ACTIONS.SITCOMMAND_CANCEL = "Order to Follow"
-STRINGS.ACTIONS.DROPCOMMAND = "Order to Drop items"
+--FOLLOWERCOMMANDS
 
-STRINGS.CHARACTERS.GENERIC.ANNOUNCE_SITCOMMAND = "Wait right here."
-STRINGS.CHARACTERS.GENERIC.ANNOUNCE_SITCOMMAND_CANCEL = "Okay, follow me."
-STRINGS.CHARACTERS.GENERIC.ANNOUNCE_DROPCOMMAND = "Show me everything you have."
-STRINGS.CHARACTERS.WX78.ANNOUNCE_SITCOMMAND = "STOP"
-STRINGS.CHARACTERS.WX78.ANNOUNCE_SITCOMMAND_CANCEL = "FOLLOW"
+local Action = GLOBAL.Action
+local ActionHandler = GLOBAL.ActionHandler
 
-ACTIONS.SITCOMMAND = GLOBAL.Action(2, true, true)
-ACTIONS.SITCOMMAND.fn = function(act)
+local STAYCOMMAND = Action({}, 2, true, true)
+STAYCOMMAND.str = "Order to Stay"
+STAYCOMMAND.id = "STAYCOMMAND"
+STAYCOMMAND.fn = function(act)
 	local targ = act.target
-	if targ and targ.components.followersitcommand then
+	if targ and targ.components.followercommands then
 		act.doer.components.locomotor:Stop()
-		act.doer.components.talker:Say(GLOBAL.GetString(act.doer.prefab, "ANNOUNCE_SITCOMMAND"))
-		if not targ.components.unteleportable then 
-			targ:AddComponent("unteleportable") 
-		end
-		targ.components.followersitcommand:SetStaying(true)
-		targ.components.followersitcommand:RememberSitPos("currentstaylocation", GLOBAL.Point(targ.Transform:GetWorldPosition()))
+		targ.components.followercommands:SetStaying(true)
+		targ.components.followercommands:RememberSitPos("currentstaylocation", GLOBAL.Point(targ.Transform:GetWorldPosition()))
 		return true
 	end
 end
-ACTIONS.SITCOMMAND.str = STRINGS.ACTIONS.SITCOMMAND
-ACTIONS.SITCOMMAND.id = "SITCOMMAND"
+AddAction(STAYCOMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(STAYCOMMAND))
 
-ACTIONS.SITCOMMAND_CANCEL = GLOBAL.Action(2, true, true)
-ACTIONS.SITCOMMAND_CANCEL.fn = function(act)
+local FOLLOWCOMMAND = Action({}, 2, true, true)
+FOLLOWCOMMAND.str = "Order to Follow"
+FOLLOWCOMMAND.id = "FOLLOWCOMMAND"
+FOLLOWCOMMAND.fn = function(act)
 	local targ = act.target
-	if targ and targ.components.followersitcommand then
+	if targ and targ.components.followercommands then
 		act.doer.components.locomotor:Stop()
-		act.doer.components.talker:Say(GLOBAL.GetString(act.doer.prefab, "ANNOUNCE_SITCOMMAND_CANCEL"))
-		targ:RemoveComponent("unteleportable")
-		targ.components.followersitcommand:SetStaying(false)
+		targ.components.followercommands:SetStaying(false)
 		return true
 	end
 end
-ACTIONS.SITCOMMAND_CANCEL.str = STRINGS.ACTIONS.SITCOMMAND_CANCEL
-ACTIONS.SITCOMMAND_CANCEL.id = "SITCOMMAND_CANCEL"
+AddAction(FOLLOWCOMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(FOLLOWCOMMAND))
 
-ACTIONS.DROPCOMMAND = GLOBAL.Action(2, true, true)
-ACTIONS.DROPCOMMAND.fn = function(act)
+local DROP1COMMAND = Action({}, 2, true, true)
+DROP1COMMAND.str = "Order to Drop items"
+DROP1COMMAND.id = "DROP1COMMAND"
+DROP1COMMAND.fn = function(act)
 	local targ = act.target
-	if targ then
+	if targ and targ.components.sleeper and not targ.components.sleeper.isasleep then
 		act.doer.components.locomotor:Stop()
-		act.doer.components.talker:Say(GLOBAL.GetString(act.doer.prefab, "ANNOUNCE_DROPCOMMAND"))
+		targ.components.followercommands:DropItems()
+	end
+end
+AddAction(DROP1COMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(DROP1COMMAND))
 
-		targ.components.inventory:DropEverything()		
+local DROP2COMMAND = Action({}, 2, true, true)
+DROP2COMMAND.str = "Order to Drop unused equipment"
+DROP2COMMAND.id = "DROP2COMMAND"
+DROP2COMMAND.fn = function(act)
+	local targ = act.target
+	if targ and targ.components.sleeper and not targ.components.sleeper.isasleep then
+		act.doer.components.locomotor:Stop()
+		targ.components.followercommands:DropItems()
+	end
+end
+AddAction(DROP2COMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(DROP2COMMAND))
+
+local DROP3COMMAND = Action({}, 2, true, true)
+DROP3COMMAND.str = "Order to Drop everything"
+DROP3COMMAND.id = "DROP3COMMAND"
+DROP3COMMAND.fn = function(act)
+	local targ = act.target
+	if targ and targ.components.sleeper and not targ.components.sleeper.isasleep then
+		act.doer.components.locomotor:Stop()
+		targ.components.followercommands:DropItems()
+	end
+end
+AddAction(DROP3COMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(DROP3COMMAND))
+
+local SWITCHCOMMAND = Action({}, 2, true, true)
+SWITCHCOMMAND.str = "Order to Switch weapons"
+SWITCHCOMMAND.id = "SWITCHCOMMAND"
+SWITCHCOMMAND.fn = function(act)
+	local targ = act.target
+	if targ and targ.components.sleeper and not targ.components.sleeper.isasleep then
+		act.doer.components.locomotor:Stop()
+		targ.components.followercommands:SwitchWeapon()
+	end
+end
+AddAction(SWITCHCOMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(SWITCHCOMMAND))
+
+local RESURRECT = Action({}, 3)
+RESURRECT.str = "Resurrect"
+RESURRECT.id = "RESURRECT"
+RESURRECT.fn = function(act) 
+	if act.doer and act.target and act.target.components.dsaresurrector and act.target.components.dsaresurrector.canresurrect then
+        act.invobject.components.dsaresurrectable:OnResurrect(act.target, act.doer)
+        return true
+    end
+end
+AddAction(RESURRECT)
+AddStategraphActionHandler("wilson", ActionHandler(RESURRECT, "doshortaction"))
+
+ACTIONS.GIVE.priority = 4
+
+local MOUNTCOMMAND = Action({}, 2, true, true)
+MOUNTCOMMAND.str = "Order to Mount Raft"
+MOUNTCOMMAND.id = "MOUNTCOMMAND"
+MOUNTCOMMAND.fn = function(act)
+	local targ = act.target
+	if targ and targ.components.followercommands then
+		targ.components.followercommands:SetMount(true)
 		return true
 	end
 end
-ACTIONS.DROPCOMMAND.str = STRINGS.ACTIONS.DROPCOMMAND
-ACTIONS.DROPCOMMAND.id = "DROPCOMMAND"
+AddAction(MOUNTCOMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(MOUNTCOMMAND))
 
--- [[ WOODIE BEGIN ]] -- 
-STRINGS.YNAWOODIE = {}
-STRINGS.YNAWOODIE.HURT = "I'm dying."
-STRINGS.YNAWOODIE.NOAXE = "I've already got Lucy."
-		
-STRINGS.NAMES.YNAWOODIE = "Woodie"
+local DISMOUNTCOMMAND = Action({}, 2, true, true)
+DISMOUNTCOMMAND.str = "Order to Dismount Raft"
+DISMOUNTCOMMAND.id = "DISMOUNTCOMMAND"
+DISMOUNTCOMMAND.fn = function(act)
+	local targ = act.target
+	if targ and targ.components.followercommands then
+		targ.components.followercommands:SetDismount(true)
+		return true
+	end
+end
+AddAction(DISMOUNTCOMMAND)
+AddStategraphActionHandler("wilson", ActionHandler(DISMOUNTCOMMAND))
 
-STRINGS.NAMES.YNALUCY = "Lucy the Axe"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.LUCY = "That's a prettier axe than I'm used to."
+--ADD CHARACTER STRINGS
+--WILSON 	
+STRINGS.NAMES.DSAWILSON = "Wilson"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWILSON = "Stars and atoms! Are you my doppelganger?"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWILSON = "Hi Wilson!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWILSON = "Is tiny egghead man, Wilson! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWILSON = "How do you do, Wilson?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWILSON = "DETECTING... WILSON!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWILSON = "Greetings, dear Wilson! How are your theorems coming?"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWILSON = "Wilson! Hey buddy!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWILSON = "Err, greetings, Mr. Wilson."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWILSON = "Hi Wilson! Nice weather we're having!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWILSON = "Wisdom guide you, Wilson!"
 
-STRINGS.NAMES.YNAWOODIESKULL = "Woodie's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWOODIESKULL = "Poor Woodie... I must bury him."
+STRINGS.NAMES.DSAWILSONSKELETON = "Wilson's skeleton."
+STRINGS.NAMES.DSAWILSONSKULL = "Wilson's skull."
 
--- [[ WILLOW BEGIN ]] -- 
-STRINGS.NAMES.YNAWILLOW = "Willow"
+--WILLOW
+STRINGS.NAMES.DSAWILLOW = "Willow"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWILLOW = "Good day to you, Willow!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWILLOW = "Hey! That's my face! Give it back!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWILLOW = "Is tiny torchlady, Willow! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWILLOW = "How do you do, Willow?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWILLOW = "DETECTING... WILLOW!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWILLOW = "Ah, greetings dear Willow!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWILLOW = "Look who it is! Willow!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWILLOW = "Greetings, Ms. Willow."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWILLOW = "Hi Willow! How's Bernie?"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWILLOW = "Greetings, Willow, the Inflammable!"
 
-STRINGS.NAMES.YNALIGHTER = "Willow's Lighter"
+STRINGS.NAMES.DSALIGHTER = "Willow's Lighter"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.LIGHTER = "It's her lucky lighter."
 
-STRINGS.NAMES.YNAWILLOWSKULL = "Willow's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWILLOWSKULL = "Poor Willow... I must bury her."
+STRINGS.NAMES.DSAWILLOWSKELETON = "Willow's skeleton."
+STRINGS.NAMES.DSAWILLOWSKULL = "Willow's skull."
 
--- [[ WOLFGANG BEGIN ]] -- 	
-STRINGS.NAMES.YNAWOLFGANG = "Wolfgang"
-STRINGS.NAMES.YNAWOLFGANGSKULL = "Wolfgang's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWOLFGANGSKULL = "Poor Wolfgang... I must bury him."
+--WOLFGANG	
+STRINGS.NAMES.DSAWOLFGANG = "Wolfgang"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWOLFGANG = "It's good to see you, Wolfgang!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWOLFGANG = "Hi Wolfgang!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWOLFGANG = "Hello friend! We must arm wrestle!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWOLFGANG = "Hi Wolfgang. Why are you shaking?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWOLFGANG = "DETECTING... WOLFGANG!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWOLFGANG = "Ah, greetings dear Wolfgang!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWOLFGANG = "That's my buddy, Wolfgang! Hey!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWOLFGANG = "Good day to you, Mr. Wolfgang."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWOLFGANG = "Hi %s! Have you been working out?"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWOLFGANG = "Health and strength to you, Wolfgang!"
 
--- [[ WICKERBOTTOM BEGIN ]] -- 
-STRINGS.NAMES.YNAWICKERBOTTOM = "Wickerbottom"
-STRINGS.NAMES.YNAWICKERBOTTOMSKULL = "Wickerbottom's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWICKERBOTTOMSKULL = "Poor Wickerbottom... I must bury her."
+STRINGS.NAMES.DSAWOLFGANGSKELETON = "Wolfgang's skeleton."
+STRINGS.NAMES.DSAWOLFGANGSKULL = "Wolfgang's skull."
 
-STRINGS.NAMES.YNABOOK_BIRDS = "Birds of the World"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_BIRDS = "No point studying when I can just wing it."
+--WENDY	
+STRINGS.NAMES.DSAWENDY = "Wendy"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWENDY = "Greetings, Wendy!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWENDY = "Hi Wendy!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWENDY = "Is very tiny, scary Wendy! H-hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWENDY = "She looks sad..."
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWENDY = "DETECTING... WENDY!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWENDY = "Ah, greetings dear Wendy!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWENDY = "Wendy! Hi little buddy!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWENDY = "Greetings, Ms. Wendy. How are you?"
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWENDY =  "Hi Wendy! Let's play, okay?"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWENDY = "Spirits be with you, Wendy!"
 
-STRINGS.NAMES.YNABOOK_BRIMSTONE = "The End is Nigh!"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_BRIMSTONE = "The beginning was dull, but got better near the end."
-
-STRINGS.NAMES.YNABOOK_SLEEP = "Sleepytime Stories"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_SLEEP = "Strange, it's just 500 pages of telegraph codes."
-
-STRINGS.NAMES.YNABOOK_GARDENING = "Applied Horticulture"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_GARDENING = "I see no farm in reading that."
-
-STRINGS.NAMES.YNABOOK_TENTACLES = "On Tentacles"
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_TENTACLES = "Someone'll get suckered into reading this."
-
--- [[ WX78 BEGIN ]] -- 	
-STRINGS.NAMES.YNAWX78 = "WX-78"
-STRINGS.NAMES.YNAWX78SKULL = "WX-78's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWX78SKULL = "Poor WX-78... I must bury him."
-
--- [[ WES BEGIN ]] -- 	
-STRINGS.NAMES.YNAWES = "Wes"
-STRINGS.NAMES.YNAWESSKULL = "Wes's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWESSKULL = "Poor Wes... I must bury him."
-
--- [[ WENDY BEGIN ]] -- 	
-STRINGS.NAMES.YNAWENDY = "Wendy"
-
-STRINGS.NAMES.YNAABIGAIL_FLOWER = "Abigail's Flower"
+STRINGS.NAMES.DSAABIGAIL_FLOWER = "Abigail's Flower"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.ABIGAIL_FLOWER = 
 		{ 
 			GENERIC ="It's hauntingly beautiful.",
@@ -159,18 +235,188 @@ STRINGS.CHARACTERS.GENERIC.DESCRIBE.ABIGAIL_FLOWER =
 			HAUNTED_POCKET = "I don't think I should hang on to this.",
 			HAUNTED_GROUND = "I'd die to find out what it does.",
 		}
-STRINGS.NAMES.YNAABIGAIL = "Abigail"
+STRINGS.NAMES.DSAABIGAIL = "Abigail"
 STRINGS.CHARACTERS.GENERIC.DESCRIBE.ABIGAIL = "Awww, she has a cute little bow."
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.ABIGAIL = "What do you desire, apparition?"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.ABIGAIL = "Why won't these mortals just stay dead?"
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.ABIGAIL = "That's no party poltergeist!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.ABIGAIL = "Fascinating. Can you speak, specter?"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.ABIGAIL = "So, what happened to you?"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.ABIGAIL = "Are you friendly ghost?"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.ABIGAIL = "That ain't right."
+STRINGS.CHARACTERS.WX78.DESCRIBE.ABIGAIL = "UNDEAD ALERT"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.ABIGAIL = "Why won't these mortals just stay dead?"
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.ABIGAIL = "That's no party poltergeist!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.ABIGAIL = "What do you desire, apparition?"
 
-STRINGS.NAMES.YNAWENDYSKULL = "Wendy's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWENDYSKULL = "Poor Wendy... I must bury her."
+STRINGS.NAMES.DSAWENDYSKELETON = "Wendy's skeleton."
+STRINGS.NAMES.DSAWENDYSKULL = "Wendy's skull."
 
--- [[ WILSON BEGIN ]] -- 	
-STRINGS.NAMES.YNAWILSON = "Wilson"
-STRINGS.NAMES.YNAWILSONSKULL = "Wilson's skull."
-STRINGS.CHARACTERS.GENERIC.DESCRIBE.YNAWILSONSKULL = "Poor Wilson... I must bury him."
+--WX78 	
+STRINGS.NAMES.DSAWX78 = "WX-78"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWX78 = "Good day to you, WX-78!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWX78 = "Hi WX-78!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWX78 = "Is tiny robot, WX-78! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWX78 = "How do you do, WX-78?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWX78 = "GREETINGS. YOU LOOK MORE INTELLIGENT THAN THE OTHERS"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWX78 = "Ah, the automaton. Greetings, dear WX-78!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWX78 = "It's my metal buddy, WX-78!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWX78 = "Greetings, Mx. WX-78."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWX78 = "Hi WX-78! You look very non-organic today!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWX78 = "May Thor's bolts energize you, WX-78!"
 
--- [[ SHARED OVERWRITES BEGIN ]] --
+STRINGS.NAMES.DSAWX78SKELETON = "WX-78's skeleton."
+STRINGS.NAMES.DSAWX78SKULL = "WX-78's skull."
+
+--WICKERBOTTOM 
+STRINGS.NAMES.DSAWICKERBOTTOM = "Wickerbottom"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWICKERBOTTOM = "Good day, Wickerbottom!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWICKERBOTTOM = "Hi Wickerbottom!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWICKERBOTTOM = "Is strong brainlady! Hello, tiny Wickerbottom!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWICKERBOTTOM = "How do you do, Ms. Wickerbottom?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWICKERBOTTOM = "DETECTING... WICKERBOTTOM!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWICKERBOTTOM = "Ah, greetings! Fancy seeing you here."
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWICKERBOTTOM = "Wickerbottom. Ma'am."
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWICKERBOTTOM = "Greetings, Ms. Wickerbottom."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWICKERBOTTOM = "Hello Ms. Wickerbottom!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWICKERBOTTOM = "Good health and wisdom to you, elder Wickerbottom!"
+
+STRINGS.NAMES.DSAWICKERBOTTOMSKELETON = "Wickerbottom's skeleton."
+STRINGS.NAMES.DSAWICKERBOTTOMSKULL = "Wickerbottom's skull."
+
+STRINGS.NAMES.DSABOOK_BIRDS = "Birds of the World"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_BIRDS = "No point studying when I can just wing it."
+
+STRINGS.NAMES.DSABOOK_BRIMSTONE = "The End is Nigh!"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_BRIMSTONE = "The beginning was dull, but got better near the end."
+
+STRINGS.NAMES.DSABOOK_SLEEP = "Sleepytime Stories"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_SLEEP = "Strange, it's just 500 pages of telegraph codes."
+
+STRINGS.NAMES.DSABOOK_GARDENING = "Applied Horticulture"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_GARDENING = "I see no farm in reading that."
+
+STRINGS.NAMES.DSABOOK_TENTACLES = "On Tentacles"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BOOK_TENTACLES = "Someone'll get suckered into reading this."
+
+--WOODIE
+STRINGS.NAMES.DSAWOODIE = "Woodie"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWOODIE = "Greetings, Woodie!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWOODIE = "Hi Woodie!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWOODIE = "Is beard! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWOODIE = "How do you do, Woodie?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWOODIE = "DETECTING... WOODIE!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWOODIE = "Ah, greetings dear Woodie!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWOODIE = "Fancy seeing another Canadian here."
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWOODIE = "Greetings, Mr. Woodie."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWOODIE = "Hi Woodie, hi Lucy!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWOODIE = "May Yggdrasil bind us as the nine worlds, Woodie!"
+
+STRINGS.NAMES.DSALUCY = "Lucy the Axe"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.LUCY = "That's a prettier axe than I'm used to."
+
+STRINGS.NAMES.DSAWOODIESKELETON = "Woodie's skeleton."
+STRINGS.NAMES.DSAWOODIESKULL = "Woodie's skull."
+
+--WES
+STRINGS.NAMES.DSAWES = "Wes"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWES = "Greetings, Wes!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWES = "Hi Wes!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWES = "Is tiny oddman, Wes! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWES = "How do you do, Wes?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWES = "DETECTING... WES!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWES = "Ah, the mime lad. Greetings, dear Wes!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWES = "Wes! How ya doin', buddy?"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWES = "Greetings, Mr. Wes."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWES = "Hey! Hi Wes!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWES = "Good health to you, Wes!"
+
+STRINGS.NAMES.DSABALLOONS_EMPTY = "Pile o' Balloons"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BALLOONS_EMPTY = "It looks like clown currency."
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.BALLOON = "How are they floating?"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.BALLOONS_EMPTY = "I could fill them with flammable gas."
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.BALLOON = "That's just asking to be popped."
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.BALLOONS_EMPTY = "Wolfgang will make balloon muscles."
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.BALLOON = "Is full of clown breath!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.BALLOONS_EMPTY = "These look as deflated as I feel..."
+STRINGS.CHARACTERS.WENDY.DESCRIBE.BALLOON = "A colorful reminder that my childhood is no more."
+STRINGS.CHARACTERS.WX78.DESCRIBE.BALLOONS_EMPTY = "USELESS RUBBER SACKS"
+STRINGS.CHARACTERS.WX78.DESCRIBE.BALLOON = "WX-78 CANNOT BE FOOLED. THESE ANIMALS ARE NOT REAL."
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.BALLOONS_EMPTY = "These seem frivolous."
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.BALLOON = "Could serve as a suitable diversion."
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.BALLOONS_EMPTY = "Are those balloons?"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.BALLOON = "It's squeaky. Just like a real woodland creature."
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.BALLOONS_EMPTY = "Those look much too jovial for my liking."
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.BALLOON = "This seems out of place here. Too cheery."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.BALLOONS_EMPTY = "Is there going to be a party?!"
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.BALLOON = "Balloon animals! Balloon animals!!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.BALLOONS_EMPTY = "Such colors! I could sing!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.BALLOON = "Fie! Foul beast!"
+
+STRINGS.NAMES.DSAWESSKELETON = "Wes's skeleton."
+STRINGS.NAMES.DSAWESSKULL = "Wes's skull."
+
+--WAXWELL
+STRINGS.NAMES.DSAWAXWELL = "Maxwell"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWAXWELL = "Decent day to you, Maxwell!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWAXWELL = "Hi Maxwell!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWAXWELL = "Is tiny frailman, Maxwell! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWAXWELL = "How are you coping, Maxwell?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWAXWELL = "DETECTING... MAXWELL!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWAXWELL = "Ah, greetings dear Maxwell!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWAXWELL = "Hey Maxwell, how you doin' ya big hoser?"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWAXWELL = "What a dapper fellow!"
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWAXWELL = "Hi Maxwell! Lookin' dapper!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWAXWELL = "Greetings, Maxwell, my ally!"
+
+STRINGS.NAMES.DSAWAXWELLSKELETON = "Maxwell's skeleton."
+STRINGS.NAMES.DSAWAXWELLSKULL = "Maxwell's skull."
+
+STRINGS.NAMES.DSAWAXWELLJOURNAL = "Codex Umbra"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.WAXWELLJOURNAL = "Spooky."
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.WAXWELLJOURNAL = "Would make a great bedtime story... for nightmares!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.WAXWELLJOURNAL = "Wolfgang is glad he cannot read!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.WAXWELLJOURNAL = "Do you want me to read you a story, Abigail?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.WAXWELLJOURNAL = "GOOSEBUMPS ACTIVATED"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.WAXWELLJOURNAL = "I'm not letting THAT in MY library!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.WAXWELLJOURNAL = "Trees made into... paper? How unholy!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.WAXWELLJOURNAL = "I'm so sorry Charlie."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.WAXWELLJOURNAL = "I don't think we should play with that..."
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.WAXWELLJOURNAL = "A tragic tale of woe and misery!"
+
+--WEBBER
+STRINGS.NAMES.DSAWEBBER = "Webber"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWEBBER = "Good day, Webber!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWEBBER = "Hi Webber!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWEBBER = "Is tiny monsterchild, Webber! H-hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWEBBER = "Hey, Webber!"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWEBBER = "DETECTING... WEBBER!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWEBBER = "Ah, greetings dear Webber!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWEBBER = "Webber! Hi little buddy!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWEBBER = "Greetings, Mr. Webber."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWEBBER = "A spiderfriend! Hi Webber!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWEBBER = "Blessings upon you, spiderchild Webber!"
+
+STRINGS.NAMES.DSAWEBBERSKELETON = "Webber's skeleton."
+STRINGS.NAMES.DSAWEBBERSKULL = "Webber's skull."
+
+--WATHGRITHR
+STRINGS.NAMES.DSAWATHGRITHR = "Wigfrid"
+STRINGS.CHARACTERS.GENERIC.DESCRIBE.DSAWATHGRITHR = "Good day, Wigfrid!"
+STRINGS.CHARACTERS.WILLOW.DESCRIBE.DSAWATHGRITHR = "Hi Wigfrid!"
+STRINGS.CHARACTERS.WOLFGANG.DESCRIBE.DSAWATHGRITHR = "Is very strong, Wigfrid! Hello!"
+STRINGS.CHARACTERS.WENDY.DESCRIBE.DSAWATHGRITHR = "How do you do, Wigfrid?"
+STRINGS.CHARACTERS.WX78.DESCRIBE.DSAWATHGRITHR = "DETECTING... WIGFRID!"
+STRINGS.CHARACTERS.WICKERBOTTOM.DESCRIBE.DSAWATHGRITHR = "Ah, greetings dear Wigfrid!"
+STRINGS.CHARACTERS.WOODIE.DESCRIBE.DSAWATHGRITHR = "Wigfrid! Hi little buddy!"
+STRINGS.CHARACTERS.WAXWELL.DESCRIBE.DSAWATHGRITHR = "Greetings, Ms. Wigfrid."
+STRINGS.CHARACTERS.WEBBER.DESCRIBE.DSAWATHGRITHR = "Wow, Wigfrid! You're lookin' tough!"
+STRINGS.CHARACTERS.WATHGRITHR.DESCRIBE.DSAWATHGRITHR = "Hail, Wigfrid, fellow shieldmaiden!"
+
+STRINGS.NAMES.DSAWATHGRITHRSKELETON = "Wigfrid's skeleton."
+STRINGS.NAMES.DSAWATHGRITHRSKULL = "Wigfrid's skull."
+
+--COMPONENT POSTINITS
 function addLightningStrikeToFollowers(inst)
 	inst.DoLightningStrike = function(self, pos, ignoreRods)
 		local rod = nil
@@ -225,12 +471,60 @@ function addLightningStrikeToFollowers(inst)
 end
 AddComponentPostInit("seasonmanager", addLightningStrikeToFollowers)
 
-function adjustGuarantee(inst)
+function restrictCharacter(inst)
+	inst.CollectInventoryActions = function(self, doer, actions, right)
+		if doer.prefab == "wes" or doer.prefab == "dsawes" then
+			table.insert(actions, ACTIONS.MAKEBALLOON)
+		end
+	end
+end
+AddComponentPostInit("balloonmaker", restrictCharacter)
+
+function setForWebber(inst)
+	inst.DoFoodEffects = function(self, food)
+		if food:HasTag("monstermeat") then
+			if self.inst:HasTag("player") or self.inst.prefab == "dsawebber" then
+				return not self.monsterimmune
+			else
+				return not self.strongstomach
+			end
+		else
+			return true
+		end
+	end
+end
+AddComponentPostInit("eater", setForWebber)
+
+function removeValidTarget(inst)
+	inst.IsValidTarget = function(self, target)
+		if not target 
+		   or not target:IsValid()
+		   or not target.components
+		   or not target.components.combat
+		   or not target.entity:IsVisible()
+		   or not target.components.health
+		   or target == self.inst
+		   or target.components.health:IsDead()
+		   or (target:HasTag("shadow") and not self.inst.components.sanity)
+		   or GLOBAL.Vector3(target.Transform:GetWorldPosition()).y > self.attackrange
+		   or (self.inst == GLOBAL.GetPlayer() and target:HasTag("resurrected")) then
+			return false
+		else
+			return true
+		end
+	end
+end
+AddComponentPostInit("combat", removeValidTarget)
+--[[function adjustGuarantee(inst)
 	inst.GuaranteeItems = function(self, items)
 
 		self.inst:DoTaskInTime(0,function()
 			for k,v in pairs(items) do
 				local item = v
+				
+				if type(v) == "table" then
+					item = v.equipped
+				end 
 				
 				local equipped = false
 				for k,v in pairs (self.equipslots) do
@@ -246,6 +540,9 @@ function adjustGuarantee(inst)
 						end
 					end
 				else
+					if type(v) == "table" then
+						item = v.placed
+					end 
 					for k,v in pairs(GLOBAL.Ents) do
 						if v.prefab == item then
 							item = nil
@@ -253,6 +550,9 @@ function adjustGuarantee(inst)
 						end
 					end
 					if item then
+					     if type(v) == "table" then
+							item = v.equipped
+						end   
 						self:GiveItem(GLOBAL.SpawnPrefab(item))
 					end
 				end
@@ -260,7 +560,7 @@ function adjustGuarantee(inst)
 		end)
 	end
 end
-AddComponentPostInit("inventory", adjustGuarantee)
+AddComponentPostInit("inventory", adjustGuarantee)]]
 
 function removeDistortionFromFollower(inst)
 	inst.OnUpdate = function(self, dt)
@@ -320,84 +620,300 @@ function addFollowerDamageResist(inst)
 end
 AddComponentPostInit("combat", addFollowerDamageResist)
 
+--PREFAB POSTINITS
 function RemoveSelfBurn(inst)
 	inst.components.weapon:SetAttackCallback(nil)
 end
 AddPrefabPostInit("torch", RemoveSelfBurn)
 
---overwrite GIVE action to have higher priority than attack=2
-ACTIONS.GIVE.priority = 4
+function AddSkulls(inst)
+	inst:DoTaskInTime(0, function() 
+	
+		if GLOBAL.GetWorld():IsCave() or GLOBAL.GetWorld():IsRuins() or GLOBAL.GetWorld():HasTag("volcano") then
+			return
+		end
+		
+		local skulls = {}
+		local wilson_exists = false
+		local willow_exists = false
+		local wolfgang_exists = false
+		local wendy_exists = false
+		local wx78_exists = false
+		local wickerbottom_exists = false
+		local woodie_exists = false
+		local wes_exists = false
+		local waxwell_exists = false
+		local webber_exists = false
+		local wigrid_exists = false
+		for k,v in pairs(GLOBAL.Ents) do
+			if v.prefab == "wilson" or v.prefab == "dsawilson" or v.prefab == "dsawilsonskull" or v.prefab == "dsawilsonskeleton" then
+				wilson_exists = true
+			elseif v.prefab == "willow" or v.prefab == "dsawillow" or v.prefab == "dsawillowskull" or v.prefab == "dsawillowskeleton" then
+				willow_exists = true
+			elseif v.prefab == "wolfgang" or v.prefab == "dsawolfgang" or v.prefab == "dsawolfgangskull" or v.prefab == "dsawolfgangskeleton" then
+				wolfgang_exists = true
+			elseif v.prefab == "wendy" or v.prefab == "dsawendy" or v.prefab == "dsawendyskull" or v.prefab == "dsawendyskeleton" then
+				wendy_exists = true
+			elseif v.prefab == "wx78" or v.prefab == "dsawx78" or v.prefab == "dsawx78skull" or v.prefab == "dsawx78skeleton" then
+				wx78_exists = true
+			elseif v.prefab == "wickerbottom" or v.prefab == "dsawickerbottom" or v.prefab == "dsawickerbottomskull" or v.prefab == "dsawickerbottomskeleton" then
+				wickerbottom_exists = true
+			elseif v.prefab == "woodie" or v.prefab == "dsawoodie" or v.prefab == "dsawoodieskull" or v.prefab == "dsawoodieskeleton" then
+				woodie_exists = true
+			elseif v.prefab == "wes" or v.prefab == "dsawes" or v.prefab == "dsawesskull" or v.prefab == "dsawesskeleton" then
+				wes_exists = true
+			elseif v.prefab == "waxwell" or v.prefab == "dsawaxwell" or v.prefab == "dsawaxwellskull" or v.prefab == "dsawaxwellskeleton" then
+				waxwell_exists = true
+			elseif v.prefab == "webber" or v.prefab == "dsawebber" or v.prefab == "dsawebberskull" or v.prefab == "dsawebberskeleton" then
+				webber_exists = true
+			elseif v.prefab == "wathgrithr" or v.prefab == "dsawathgrithr" or v.prefab == "dsawathgrithrskull" or v.prefab == "dsawathgrithrskeleton" then
+				wigrid_exists = true
+			end
+		end
+		if not wilson_exists then
+			table.insert(skulls,"dsawilsonskeleton")
+		end
+		if not willow_exists then
+			table.insert(skulls,"dsawillowskeleton")
+		end
+		if not wolfgang_exists then
+			table.insert(skulls,"dsawolfgangskeleton")
+		end
+		if not wendy_exists then
+			table.insert(skulls,"dsawendyskeleton")
+		end
+		if not wx78_exists then
+			table.insert(skulls,"dsawx78skeleton")
+		end
+		if not wickerbottom_exists then
+			table.insert(skulls,"dsawickerbottomskeleton")
+		end
+		if not woodie_exists then
+			table.insert(skulls,"dsawoodieskeleton")
+		end
+		if not wes_exists then
+			table.insert(skulls,"dsawesskeleton")
+		end
+		if not waxwell_exists then
+			table.insert(skulls,"dsawaxwellskeleton")
+		end
+		if not webber_exists then
+			table.insert(skulls,"dsawebberskeleton")
+		end
+		if not wigrid_exists then
+			table.insert(skulls,"dsawathgrithrskeleton")
+		end
+		
+		for i,v in ipairs(skulls) do
+			local skull = GLOBAL.SpawnPrefab(v)
+			local offset = GLOBAL.Vector3(math.random(-5,5),0,math.random(-5,5))
+			local spawnPoint = inst:GetPosition()+offset
+			skull.Transform:SetPosition(spawnPoint:Get())
+			if v == "dsawillowskeleton" then
+				local item = GLOBAL.SpawnPrefab("dsalighter")
+				item.Transform:SetPosition(spawnPoint:Get())
+			elseif v == "dsawendyskeleton" then
+				local item = GLOBAL.SpawnPrefab("dsaabigail_flower")
+				item.Transform:SetPosition(spawnPoint:Get())
+			elseif v == "dsawoodieskeleton" then
+				local item = GLOBAL.SpawnPrefab("dsalucy")
+				item.Transform:SetPosition(spawnPoint:Get())
+			elseif v == "dsawesskeleton" then
+				local item = GLOBAL.SpawnPrefab("dsaballoons_empty")
+				item.Transform:SetPosition(spawnPoint:Get())
+			elseif v == "dsawaxwellskeleton" then
+				local item = GLOBAL.SpawnPrefab("dsawaxwelljournal")
+				item.Transform:SetPosition(spawnPoint:Get())
+			end
+				
+		end
+		
+	end)
+end
+AddPrefabPostInit("wilson", AddSkulls)
+AddPrefabPostInit("willow", AddSkulls)
+AddPrefabPostInit("wolfgang", AddSkulls)
+AddPrefabPostInit("wendy", AddSkulls)
+AddPrefabPostInit("wickerbottom", AddSkulls)
+AddPrefabPostInit("wx78", AddSkulls)
+AddPrefabPostInit("woodie", AddSkulls)
+AddPrefabPostInit("wes", AddSkulls)
+AddPrefabPostInit("waxwell", AddSkulls)
+AddPrefabPostInit("webber", AddSkulls)
+AddPrefabPostInit("wathgrithr", AddSkulls)
+AddPrefabPostInit("walani", AddSkulls)
+AddPrefabPostInit("warly", AddSkulls)
+AddPrefabPostInit("wilbur", AddSkulls)
+AddPrefabPostInit("woodlegs", AddSkulls)
 
--- add tradable component to various gear
 function AddTradable(inst)
 	if not inst.components.tradable then
 		inst:AddComponent("tradable")
 	end
 end
+--Add Weapons
+AddPrefabPostInit("torch", AddTradable)
+AddPrefabPostInit("lantern", AddTradable)
 AddPrefabPostInit("axe", AddTradable)
 AddPrefabPostInit("goldenaxe", AddTradable)
-AddPrefabPostInit("armor_sanity", AddTradable)
-AddPrefabPostInit("umbrella", AddTradable)
-AddPrefabPostInit("grass_umbrella", AddTradable)
-AddPrefabPostInit("hambat", AddTradable)
-AddPrefabPostInit("spear", AddTradable)
-AddPrefabPostInit("tentaclespike", AddTradable)
-AddPrefabPostInit("nightsword", AddTradable)
-AddPrefabPostInit("torch", AddTradable)
-AddPrefabPostInit("armorwood", AddTradable)
 AddPrefabPostInit("pickaxe", AddTradable)
 AddPrefabPostInit("goldenpickaxe", AddTradable)
+AddPrefabPostInit("shovel", AddTradable)
+AddPrefabPostInit("goldenshovel", AddTradable)
+AddPrefabPostInit("hammer", AddTradable)
+AddPrefabPostInit("pitchfork", AddTradable)
+AddPrefabPostInit("multitool_axe_pickaxe", AddTradable)
+AddPrefabPostInit("umbrella", AddTradable)
+AddPrefabPostInit("grass_umbrella", AddTradable)
+AddPrefabPostInit("fishingrod", AddTradable)
+AddPrefabPostInit("bugnet", AddTradable)
+AddPrefabPostInit("cane", AddTradable)
+AddPrefabPostInit("spear", AddTradable)
+AddPrefabPostInit("hambat", AddTradable)
+AddPrefabPostInit("batbat", AddTradable)
+AddPrefabPostInit("tentaclespike", AddTradable)
+AddPrefabPostInit("nightsword", AddTradable)
+AddPrefabPostInit("ruins_bat", AddTradable)
+AddPrefabPostInit("nightstick", AddTradable)
 AddPrefabPostInit("blowdart_sleep", AddTradable)
 AddPrefabPostInit("blowdart_fire", AddTradable)
 AddPrefabPostInit("blowdart_pipe", AddTradable)
 AddPrefabPostInit("boomerang", AddTradable)
-AddPrefabPostInit("ice_projectile", AddTradable)
-AddPrefabPostInit("fire_projectile", AddTradable)
-AddPrefabPostInit("fishingrod", AddTradable)
-AddPrefabPostInit("bugnet", AddTradable)
-AddPrefabPostInit("hammer", AddTradable)
-AddPrefabPostInit("shovel", AddTradable)
-AddPrefabPostInit("goldenshovel", AddTradable)
-AddPrefabPostInit("pitchfork", AddTradable)
-AddPrefabPostInit("cane", AddTradable)
-AddPrefabPostInit("armormarble", AddTradable)
+AddPrefabPostInit("icestaff", AddTradable)
+AddPrefabPostInit("firestaff", AddTradable)
+AddPrefabPostInit("telestaff", AddTradable)
+AddPrefabPostInit("orangestaff", AddTradable)
+AddPrefabPostInit("greenstaff", AddTradable)
+AddPrefabPostInit("yellowstaff", AddTradable)
+
+--Add Armor
 AddPrefabPostInit("armorgrass", AddTradable)
+AddPrefabPostInit("armorwood", AddTradable)
+AddPrefabPostInit("armormarble", AddTradable)
+AddPrefabPostInit("armorruins", AddTradable)
+AddPrefabPostInit("armor_sanity", AddTradable)
+AddPrefabPostInit("armorslurper", AddTradable)
+AddPrefabPostInit("armorsnurtleshell", AddTradable)
 AddPrefabPostInit("sweatervest", AddTradable)
 AddPrefabPostInit("trunkvest_summer", AddTradable)
 AddPrefabPostInit("trunkvest_winter", AddTradable)
-AddPrefabPostInit("armorsnurtleshell", AddTradable)
-AddPrefabPostInit("ynalighter", AddTradable)
+AddPrefabPostInit("amulet", AddTradable)
+AddPrefabPostInit("blueamulet", AddTradable)
+AddPrefabPostInit("purpleamulet", AddTradable)
+AddPrefabPostInit("orangeamulet", AddTradable)
+AddPrefabPostInit("greenamulet", AddTradable)
+AddPrefabPostInit("yellowamulet", AddTradable)
+
+--Add Miscellaneous
+AddPrefabPostInit("cutgrass", AddTradable)
+AddPrefabPostInit("sapling", AddTradable)
+AddPrefabPostInit("twigs", AddTradable)
+AddPrefabPostInit("pinecone", AddTradable)
 AddPrefabPostInit("nightlight", AddTradable)
-AddPrefabPostInit("batbat", AddTradable)
-AddPrefabPostInit("ynalucy", AddTradable)
 AddPrefabPostInit("bluegem", AddTradable)
 AddPrefabPostInit("redgem", AddTradable)
-AddPrefabPostInit("armorruins", AddTradable)
-AddPrefabPostInit("armorslurper", AddTradable)
-AddPrefabPostInit("multitool_axe_pickaxe", AddTradable)
-AddPrefabPostInit("ruins_bat", AddTradable)
+AddPrefabPostInit("purplegem", AddTradable)
+AddPrefabPostInit("orangegem", AddTradable)
+AddPrefabPostInit("greengem", AddTradable)
+AddPrefabPostInit("yellowgem", AddTradable)
 AddPrefabPostInit("log", AddTradable)
+AddPrefabPostInit("livinglog", AddTradable)
+AddPrefabPostInit("marble", AddTradable)
 AddPrefabPostInit("cutreeds", AddTradable)
+AddPrefabPostInit("cutlichen", AddTradable)
 AddPrefabPostInit("bedroll_straw", AddTradable)
 AddPrefabPostInit("bedroll_furry", AddTradable)
 AddPrefabPostInit("dug_grass", AddTradable)
 AddPrefabPostInit("dug_sapling", AddTradable)
 AddPrefabPostInit("dug_berrybush", AddTradable)
 AddPrefabPostInit("dug_berrybush2", AddTradable)
-AddPrefabPostInit("raincoat", AddTradable)
-AddPrefabPostInit("ynabook_sleep", AddTradable)
-AddPrefabPostInit("ynabook_gardening", AddTradable)
-AddPrefabPostInit("ynabook_brimstone", AddTradable)
-AddPrefabPostInit("ynabook_birds", AddTradable)
-AddPrefabPostInit("ynabook_tentacles", AddTradable)
 AddPrefabPostInit("tentaclespots", AddTradable)
 AddPrefabPostInit("poop", AddTradable)
+AddPrefabPostInit("guano", AddTradable)
 AddPrefabPostInit("nightmarefuel", AddTradable)
+AddPrefabPostInit("slurper_pelt", AddTradable)
 AddPrefabPostInit("gears", AddTradable)
--- DLC
+AddPrefabPostInit("ash", AddTradable)
+AddPrefabPostInit("spoiled_food", AddTradable)
+AddPrefabPostInit("stinger", AddTradable)
+AddPrefabPostInit("spidergland", AddTradable)
+AddPrefabPostInit("feather_crow", AddTradable)
+AddPrefabPostInit("feather_robin", AddTradable)
+AddPrefabPostInit("feather_robin_winter", AddTradable)
+AddPrefabPostInit("beardhair", AddTradable)
+AddPrefabPostInit("manrabbit_tail", AddTradable)
+AddPrefabPostInit("charcoal", AddTradable)
+AddPrefabPostInit("mosquitosack", AddTradable)
+AddPrefabPostInit("slurtleslime", AddTradable)
+AddPrefabPostInit("spidereggsack", AddTradable)
+AddPrefabPostInit("heatrock", AddTradable)
+AddPrefabPostInit("thulecite_pieces", AddTradable)
+AddPrefabPostInit("walrus_tusk", AddTradable)
+AddPrefabPostInit("dsabook_sleep", AddTradable)
+AddPrefabPostInit("dsabook_gardening", AddTradable)
+AddPrefabPostInit("dsabook_brimstone", AddTradable)
+AddPrefabPostInit("dsabook_birds", AddTradable)
+AddPrefabPostInit("dsabook_tentacles", AddTradable)
+AddPrefabPostInit("dsaabigail_flower", AddTradable)
+AddPrefabPostInit("dsaballoons_empty", AddTradable)
+AddPrefabPostInit("dsalucy", AddTradable)
+AddPrefabPostInit("dsalighter", AddTradable)
+AddPrefabPostInit("dsawaxwelljournal", AddTradable)
+
+--DLC REIGN OF GIANTS
+AddPrefabPostInit("glommerfuel", AddTradable)
+AddPrefabPostInit("boneshard", AddTradable)
+AddPrefabPostInit("coontail", AddTradable)
+AddPrefabPostInit("goose_feather", AddTradable)
+AddPrefabPostInit("dragon_scales", AddTradable)
+AddPrefabPostInit("bearger_fur", AddTradable)
+AddPrefabPostInit("lightninggoathorn", AddTradable)
+
+AddPrefabPostInit("staff_tornado", AddTradable)
 AddPrefabPostInit("spear_wathgrithr", AddTradable)
+
+AddPrefabPostInit("reflectivevest", AddTradable)
+AddPrefabPostInit("hawaiianshirt", AddTradable)
+AddPrefabPostInit("raincoat", AddTradable)
 AddPrefabPostInit("beargervest", AddTradable)
 AddPrefabPostInit("armordragonfly", AddTradable)
+
+--DLC SHIPWRECKED
+AddPrefabPostInit("vine", AddTradable)
+AddPrefabPostInit("bamboo", AddTradable)
+AddPrefabPostInit("sand", AddTradable)
+AddPrefabPostInit("seashell", AddTradable)
+AddPrefabPostInit("seaweed", AddTradable)
+AddPrefabPostInit("seaweed_cooked", AddTradable)
+AddPrefabPostInit("limestone", AddTradable)
+AddPrefabPostInit("messagebottleempty", AddTradable)
+AddPrefabPostInit("coral_brain", AddTradable)
+AddPrefabPostInit("snakeskin", AddTradable)
+AddPrefabPostInit("shark_gills", AddTradable)
+AddPrefabPostInit("ox_horn", AddTradable)
+
+AddPrefabPostInit("machete", AddTradable)
+AddPrefabPostInit("goldenmachete", AddTradable)
+AddPrefabPostInit("obsidianmachete", AddTradable)
+AddPrefabPostInit("obsidianaxe", AddTradable)
+AddPrefabPostInit("obsidianspear", AddTradable)
+AddPrefabPostInit("obsidianmachete", AddTradable)
+AddPrefabPostInit("palmleaf_umbrella", AddTradable)
+
+AddPrefabPostInit("armorlimestone", AddTradable)
+AddPrefabPostInit("blubbersuit", AddTradable)
+AddPrefabPostInit("armor_snakeskin", AddTradable)
+AddPrefabPostInit("armor_windbreaker", AddTradable)
+AddPrefabPostInit("tarsuit", AddTradable)
+AddPrefabPostInit("armor_snakeskin", AddTradable)
+AddPrefabPostInit("armorobsidian", AddTradable)
+
+function AddRessurector(inst)
+	if not inst.components.dsaresurrector then
+		inst:AddComponent("dsaresurrector")
+	end
+end
+AddPrefabPostInit("resurrectionstone", AddRessurector)
 
 local function HearPanFlute(inst, musician, instrument)
 	if inst.components.sleeper and not inst:HasTag('summonedbyplayer') then
@@ -409,148 +925,3 @@ function BlockFollowersFromSleep(inst)
 	inst.components.instrument:SetOnHeardFn(HearPanFlute)
 end
 AddPrefabPostInit("panflute", BlockFollowersFromSleep)
-
-
-
--- overwrite getsavefollowers to ignore followers with unteleportable
-GLOBAL.SaveIndex.GetSaveFollowers = function (self, doer)
-	local followers = {}
-
-	if doer.components.leader then
-		for follower,v in pairs(doer.components.leader.followers) do
-			if follower.components.followersitcommand and follower.components.followersitcommand.stay == false then
-				local ent_data = follower:GetPersistData()
-				table.insert(followers, {prefab = follower.prefab, data = follower:GetPersistData()})
-				follower:Remove()
-			elseif not follower.components.followersitcommand and not follower.components.unteleportable then
-				local ent_data = follower:GetPersistData()
-				table.insert(followers, {prefab = follower.prefab, data = follower:GetPersistData()})
-				follower:Remove()
-			end
-		end
-	end
-
-	--special case for the chester_eyebone: look for inventory items with followers
-	if doer.components.inventory then
-		for k,item in pairs(doer.components.inventory.itemslots) do
-			if item.components.leader then
-				for follower,v in pairs(item.components.leader.followers) do
-					local ent_data = follower:GetPersistData()
-					table.insert(followers, {prefab = follower.prefab, data = follower:GetPersistData()})
-					follower:Remove()
-				end
-			end
-		end
-
-		-- special special case, look inside equipped containers
-		for k,equipped in pairs(doer.components.inventory.equipslots) do
-			if equipped and equipped.components.container then
-				local container = equipped.components.container
-				for j,item in pairs(container.slots) do
-					if item.components.leader then
-						for follower,v in pairs(item.components.leader.followers) do
-							local ent_data = follower:GetPersistData()
-							table.insert(followers, {prefab = follower.prefab, data = follower:GetPersistData()})
-							follower:Remove()
-						end
-					end
-				end
-			end
-		end
-	end
-
-	if self.data~= nil and self.data.slots ~= nil and self.data.slots[self.current_slot] ~= nil then
-	 	self.data.slots[self.current_slot].followers = followers
-	end	
-end
-
--- if DLC is enabled, enable cover for skeletons and clones wearing cover during rain
-if GLOBAL.IsDLCEnabled(GLOBAL.REIGN_OF_GIANTS) then
-	function modmoisturerate(inst)
-		oldmoisturerate = inst.GetMoistureRate
-		inst.GetMoistureRate = function(self)
-			local oldfunction = oldmoisturerate(self)
-			local x,y,z = self.inst.Transform:GetWorldPosition()
-			local ents = GLOBAL.TheSim:FindEntities(x,y,z, 4, {'sheltercarrier'} )
-			for k,v in pairs(ents) do 
-				if v.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS) and v.components.inventory:GetEquippedItem( GLOBAL.EQUIPSLOTS.HANDS).prefab == "umbrella" then
-					oldfunction = 0
-				end
-				if v.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS) and v.components.inventory:GetEquippedItem( GLOBAL.EQUIPSLOTS.HANDS).prefab == "grass_umbrella" then
-					oldfunction = oldfunction * 0.5
-				end
-			end
-			return oldfunction
-    		end
-
-	end
-	AddComponentPostInit("moisture", modmoisturerate)
-end
-
--- if DLC is enabled, enable cover for skeletons and clones wearing cover during summer
-if GLOBAL.IsDLCEnabled(GLOBAL.REIGN_OF_GIANTS) then
-	function modtemperature(inst)
-		oldgetinsulation = inst.GetInsulation
-		inst.GetInsulation = function(self)
-			local oldfunctionX, oldfunctionY = oldgetinsulation(self)
-
-			local x,y,z = self.inst.Transform:GetWorldPosition()
-			local ents = GLOBAL.TheSim:FindEntities(x,y,z, 4, {'sheltercarrier'} )
-			for k,v in pairs(ents) do 
-				if v.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS) and v.components.inventory:GetEquippedItem( GLOBAL.EQUIPSLOTS.HANDS).prefab == "umbrella" then
-					oldfunctionY = oldfunctionY + TUNING.INSULATION_MED
-				end
-				if v.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS) and v.components.inventory:GetEquippedItem( GLOBAL.EQUIPSLOTS.HANDS).prefab == "grass_umbrella" then
-					oldfunctionY = oldfunctionY + TUNING.INSULATION_MED
-				end
-			end
-			return oldfunctionX, oldfunctionY
-    		end
-
-	end
-	AddComponentPostInit("temperature", modtemperature)
-end
-
-
--- wx78 check if covered by umbrella
-function modhealthdelta(inst)
-	oldhealthdelta = inst.DoDelta
-	inst.DoDelta = function(self, amount, overtime, cause, ignore_invincible)
-		if cause == "rain" then
-			local x,y,z = self.inst.Transform:GetWorldPosition()
-			local ents = TheSim:FindEntities(x,y,z, 4, {'sheltercarrier'} )
-			for k,v in pairs(ents) do 
-				if v.components.inventory:GetEquippedItem(GLOBAL.EQUIPSLOTS.HANDS) and v.components.inventory:GetEquippedItem( GLOBAL.EQUIPSLOTS.HANDS).prefab == "umbrella" then
-					return
-				end
-			end
-		end
-		oldhealthdelta(self, amount, overtime, cause, ignore_invincible)
-	end
-end
-AddComponentPostInit("health", modhealthdelta)
-
--- prevent summons told to stay from teleporting after player
-function modteleportfollower(inst)
-	inst.oldstartleash = inst.StartLeashing
-	inst.StartLeashing = function(self)
-		self:oldstartleash()
-		self.inst:RemoveEventCallback("entitysleep", self.inst.portnearleader)
-
-		self.inst.portnearleader2 = function(self)
-			if not (self.components.followersitcommand and self.components.followersitcommand:IsCurrentlyStaying()) then
-				self.portnearleader()
-			end
-		end
-		self.inst:ListenForEvent("entitysleep", self.inst.portnearleader2)  
-		 
-	end
-	inst.StopLeashing = function(self)
-		if self.inst.portnearleader2 then 
-			self.inst:RemoveEventCallback("entitysleep", self.inst.portnearleader2)
-		end
-	end
-end
-
-AddComponentPostInit("follower", modteleportfollower)
-

@@ -6,7 +6,9 @@ local function DoFoleySounds(inst)
 			inst.SoundEmitter:PlaySound(v.components.inventoryitem.foleysound)
 		end
 	end
-
+    if inst.prefab == "dsawx78" then
+        inst.SoundEmitter:PlaySound("dontstarve/movement/foley/wx78")
+    end
 end
 
 local actionhandlers = 
@@ -29,7 +31,7 @@ local actionhandlers =
         end),
     ActionHandler(ACTIONS.CHOP, 
         function(inst) 
-            if not inst.sg:HasStateTag("prechop") then 
+            if not inst.sg:HasStateTag("prechop") and (not inst.components.beaverness or (inst.components.beaverness and not inst.components.beaverness:IsBeaver())) then 
                 if inst.sg:HasStateTag("chopping") then
                     return "chop"
                 else
@@ -57,7 +59,19 @@ local actionhandlers =
                 end
             end 
         end), 
+	ActionHandler(ACTIONS.NET, 
+        function(inst)
+            if not inst.sg:HasStateTag("prenet") then 
+                if inst.sg:HasStateTag("netting") then
+                    return "bugnet"
+                else
+                    return "bugnet_start"
+                end
+            end
+        end),        
     ActionHandler(ACTIONS.PICKUP, "doshortaction"),
+    ActionHandler(ACTIONS.PLANT, "doshortaction"),
+    ActionHandler(ACTIONS.HARVEST, "dolongaction"),   
     ActionHandler(ACTIONS.HEAL, "dolongaction"),   
 	ActionHandler(ACTIONS.PICK, 
         function(inst, action)
@@ -70,26 +84,101 @@ local actionhandlers =
             end
         end),
     ActionHandler(ACTIONS.READ, "book"),
+    ActionHandler(ACTIONS.MAKEBALLOON, "makeballoon"),
+    ActionHandler(ACTIONS.REPAIR, "dolongaction"),
+    ActionHandler(ACTIONS.MURDER, "dolongaction"),
+    ActionHandler(ACTIONS.DRY, "doshortaction"),
+    ActionHandler(ACTIONS.CHECKTRAP, "doshortaction"),
+    ActionHandler(ACTIONS.DROP, "doshortaction"),
+    ActionHandler(ACTIONS.FISH, "fishing_pre"),
+    ActionHandler(ACTIONS.FISHOCEAN, "fish_ocean"),
+    ActionHandler(ACTIONS.BAIT, "doshortaction"),
+    ActionHandler(ACTIONS.TAKEITEM, "dolongaction" ),
+    ActionHandler(ACTIONS.ADDFUEL, "doshortaction"),
+    ActionHandler(ACTIONS.STORE, "doshortaction"),
 }
+
 
 local events=
 {
     CommonHandlers.OnStep(),
-    CommonHandlers.OnSleep(),    
+CommonHandlers.OnSleep(),    
     CommonHandlers.OnLocomote(true,false),
 	
 	EventHandler("ontalk", function(inst, data)
         if inst.sg:HasStateTag("idle") then
-			inst.sg:GoToState("talk", data.noanim)
+            if inst.prefab == "dsawes" then
+				inst.sg:GoToState("mime")
+            else
+				inst.sg:GoToState("talk", data.noanim)
+			end
         end     
     end),
-    EventHandler("attacked", function(inst) if not inst.components.health:IsDead() and not inst.sg:HasStateTag("attack") then inst.sg:GoToState("hit") end end),
+	
+	EventHandler("blocked", function(inst, data)
+        if not inst.components.health:IsDead() then
+            if inst.sg:HasStateTag("shell") then
+                inst.sg:GoToState("shell_hit")
+            end
+        end
+    end),
+
+    EventHandler("attacked", function(inst, data)
+		if not inst.components.health:IsDead() then
+			if data.attacker and data.attacker:HasTag("insect") then
+                local is_idle = inst.sg:HasStateTag("idle")
+                if not is_idle then
+                    -- avoid stunlock when attacked by bees/mosquitos
+                    -- don't go to full hit state, just play sounds
+
+                    inst.SoundEmitter:PlaySound("dontstarve/wilson/hit")        
+                    
+                    if inst.prefab ~= "dsawes" then
+						local sound_name = inst.soundsname
+						local path = inst.talker_path_override or "dontstarve/characters/"
+						local sound_event = path..sound_name.."/hurt"
+						inst.SoundEmitter:PlaySound(inst.hurtsoundoverride or sound_event)   
+                    end
+                    return
+                end
+			end
+            if inst.sg:HasStateTag("shell") then
+                inst.sg:GoToState("shell_hit")
+            else
+                if IsDLCEnabled(REIGN_OF_GIANTS) and data.stimuli and data.stimuli == "electric" and not inst.components.inventory:IsInsulated() then
+                    inst.sg:GoToState("electrocute")
+                else
+                    inst.sg:GoToState("hit")
+                end
+            end
+		end
+	end),
     EventHandler("death", function(inst) inst.sg:GoToState("death") end),
-    EventHandler("doattack", function(inst) if not inst.components.health:IsDead() then inst.sg:GoToState("attack") end end),
+    EventHandler("doattack", function(inst)
+        if not inst.components.health:IsDead() and not inst.sg:HasStateTag("attack") then
+            local weapon = inst.components.combat and inst.components.combat:GetWeapon()
+            if weapon and weapon:HasTag("blowdart") then
+                inst.sg:GoToState("blowdart")
+            elseif weapon and weapon:HasTag("thrown") then
+                inst.sg:GoToState("throw")
+            else
+                inst.sg:GoToState("attack")
+            end
+        end
+    end),
 	EventHandler("equip", function(inst, data)
         if inst.sg:HasStateTag("idle") then
 			if data.eslot == EQUIPSLOTS.HANDS then
 				inst.sg:GoToState("item_out")
+			else
+				inst.sg:GoToState("item_hat")
+			end
+        end
+    end),
+    EventHandler("unequip", function(inst, data)
+        if inst.sg:HasStateTag("idle") then
+			if data.eslot == EQUIPSLOTS.HANDS then
+				inst.sg:GoToState("item_in")
 			else
 				inst.sg:GoToState("item_hat")
 			end
@@ -115,7 +204,7 @@ local events=
         inst.sg:GoToState("death")
         inst.SoundEmitter:PlaySound("dontstarve/wilson/death")    
         
-		local sound_name = string.sub(inst.prefab, 4)
+		local sound_name = inst.soundsname
         inst.SoundEmitter:PlaySound("dontstarve/characters/"..sound_name.."/death_voice")       
     end),		
     EventHandler("transform_werebeaver", function(inst, data)
@@ -135,12 +224,118 @@ local events=
 	EventHandler("powerdown",
         function(inst)
             inst.sg:GoToState("powerdown")
-        end),  
+        end),
+    EventHandler("fishingcancel",
+		function(inst)
+		    if inst.sg:HasStateTag("fishing") then
+			    inst.sg:GoToState("fishing_pst")
+			end
+		end),      
+	EventHandler("readytocatch",
+		function(inst)
+			inst.sg:GoToState("catch_pre")
+		end), 
 }
 
 local states=
 {
 	State{
+        name = "wakeup",
+
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("wakeup")
+            inst.components.health:SetInvincible(true)
+			if inst.components.sleeper and inst.components.sleeper:IsAsleep() then
+				inst.components.sleeper:WakeUp()
+			end
+        end,
+        
+        onexit = function(inst)
+            inst.components.health:SetInvincible(false)
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+	
+	State{
+        name = "powerup",
+        tags = {"busy"},
+        onenter = function(inst)
+            inst.Physics:Stop()
+            inst.AnimState:PlayAnimation("powerup")
+            inst.components.health:SetInvincible(true)
+        end,
+        
+        onexit = function(inst)
+            inst.components.health:SetInvincible(false)
+            
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+	
+    State{
+        name = "powerdown",
+        tags = {"busy"},
+        onenter = function(inst)
+            inst.Physics:Stop()
+            inst.AnimState:PlayAnimation("powerdown")
+            inst.components.health:SetInvincible(true)
+        end,
+        
+        onexit = function(inst)
+            inst.components.health:SetInvincible(false)
+            
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+	
+	State{
+        name = "sleep",
+        
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("sleep")
+            inst.components.health:SetInvincible(true)
+        end,
+
+        onexit=function(inst)
+            inst.components.health:SetInvincible(false)
+        end,
+
+    },
+	
+    State{
+        name = "death",
+        tags = {"busy"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:Hide("swap_arm_carry")
+            inst.AnimState:PlayAnimation("death")        
+            inst.components.lootdropper:DropLoot(Vector3(inst.Transform:GetWorldPosition()))    
+        end,
+		
+       events=
+        {
+            EventHandler("animover", function(inst) 	
+				local skeleton = SpawnPrefab(inst.prefab.."skeleton")
+				local spawnPoint = inst:GetPosition()
+				skeleton.Transform:SetPosition(spawnPoint:Get())
+			end ),
+        },
+    },  
+	
+    State{
         name = "idle",
         tags = {"idle"},
         onenter = function(inst, pushanim)
@@ -166,10 +361,10 @@ local states=
 			elseif inst.components.temperature:IsFreezing() then
 				table.insert(anims, "idle_shiver_pre")
 				table.insert(anims, "idle_shiver_loop")
-            elseif inst.components.temperature:IsOverheating() then
+            elseif IsDLCEnabled(REIGN_OF_GIANTS) and inst.components.temperature and inst.components.temperature:IsOverheating() then
                 --plug in overheats once they're done
                 table.insert(anims, "idle_hot_pre")
-                table.insert(anims, "idle_hot_loop")  
+                table.insert(anims, "idle_hot_loop")
 			else
 				table.insert(anims, "idle_loop")
 			end
@@ -209,7 +404,7 @@ local states=
 				inst.AnimState:PlayAnimation("idle_shiver_pre")
 				inst.AnimState:PushAnimation("idle_shiver_loop")
 				inst.AnimState:PushAnimation("idle_shiver_pst", false)
-			elseif inst.components.temperature:GetCurrent() > 60 then
+			elseif IsDLCEnabled(REIGN_OF_GIANTS) and inst.components.temperature and inst.components.temperature:GetCurrent() > 60 then
 				inst.AnimState:PlayAnimation("idle_hot_pre")
 				inst.AnimState:PushAnimation("idle_hot_loop")
 				inst.AnimState:PushAnimation("idle_hot_pst", false)
@@ -227,77 +422,1017 @@ local states=
         {
             EventHandler("animqueueover", function(inst) inst.sg:GoToState("idle") end ),
         },      
-    },
+    }, 
 
+	State{ 
+		name = "chop_start",
+        tags = {"prechop", "chopping", "working"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+			if inst.prefab == "dsawoodie" then
+				inst.AnimState:PlayAnimation("woodie_chop_pre")
+			else
+				inst.AnimState:PlayAnimation("chop_pre")
+			end
+        end,
+        
+        events=
+        {
+            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
+            EventHandler("animover", function(inst) inst.sg:GoToState("chop") end),
+        },
+    },
+	
     State{
-        name = "run_start",
-        tags = {"moving", "running", "canrotate"},
+        name = "chop",
+        tags = {"prechop", "chopping", "working"},
         
         onenter = function(inst)
-			inst.components.locomotor:RunForward()
-            inst.AnimState:PlayAnimation("run_pre")
-            inst.sg.mem.foosteps = 0
+            inst.Physics:Stop()
+			if inst.prefab == "dsawoodie" then
+				inst.AnimState:PlayAnimation("woodie_chop_loop")
+			else
+				inst.AnimState:PlayAnimation("chop_loop")
+			end
         end,
-
-        events=
-        {   
-            EventHandler("animover", function(inst) inst.sg:GoToState("run") end ),        
-        },
         
         timeline=
         {
-            TimeEvent(4*FRAMES, function(inst)
-                PlayFootstep(inst)
-                DoFoleySounds(inst)
-            end),
-        },        
+			TimeEvent(2*FRAMES, function(inst) 
+									if inst.prefab == "dsawoodie" then 
+										inst:PerformBufferedAction() 
+									end 
+								end),
+			TimeEvent(5*FRAMES, function(inst) 
+									if inst.prefab ~= "dsawoodie" then 
+										inst:PerformBufferedAction() 
+									end
+								end),
+            TimeEvent(8*FRAMES, function(inst) if inst.prefab == "dsawoodie" then 
+										inst.sg:RemoveStateTag("prechop") 
+									end 
+								end),
+            TimeEvent(12*FRAMES, function(inst) if inst.prefab ~= "dsawoodie" then 
+										inst.sg:RemoveStateTag("prechop")
+									end 
+								end),
+
+            TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("chopping") end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
     },
-
-    State{   
-        name = "run",
-        tags = {"moving", "running", "canrotate"},
-        
-        onenter = function(inst) 
-            inst.components.locomotor:RunForward()
-            inst.AnimState:PlayAnimation("run_loop")
+	
+	State{ name = "mine_start",
+        tags = {"premine", "working"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("pickaxe_pre")
         end,
         
-        timeline=
-        {
-            TimeEvent(7*FRAMES, function(inst)
-				inst.sg.mem.foosteps = inst.sg.mem.foosteps + 1
-                PlayFootstep(inst, inst.sg.mem.foosteps < 5 and 1 or .6)
-                DoFoleySounds(inst)
-            end),
-            TimeEvent(15*FRAMES, function(inst)
-				inst.sg.mem.foosteps = inst.sg.mem.foosteps + 1
-                PlayFootstep(inst, inst.sg.mem.foosteps < 5 and 1 or .6)
-                DoFoleySounds(inst)
-            end),
-        },
-        
         events=
-        {   
-            EventHandler("animover", function(inst) inst.sg:GoToState("run") end ),        
-        },   
+        {
+            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
+            EventHandler("animover", function(inst) inst.sg:GoToState("mine") end),
+        },
     },
     
     State{
-        name = "run_stop",
-        tags = {"canrotate", "idle"},
+        name = "mine",
+        tags = {"premine", "mining", "working"},
+        onenter = function(inst)
+			inst.sg.statemem.action = inst:GetBufferedAction()
+            inst.AnimState:PlayAnimation("pickaxe_loop")
+        end,
+
+        timeline=
+        {
+            TimeEvent(12*FRAMES, function(inst) 
+                if inst.sg.statemem.action and inst.sg.statemem.action.target then
+					local fx = SpawnPrefab("mining_fx")
+					fx.Transform:SetPosition(inst.sg.statemem.action.target:GetPosition():Get())
+				end
+                inst:PerformBufferedAction() 
+                inst.sg:RemoveStateTag("premine") 
+                if inst.sg.statemem.action and inst.sg.statemem.action.target and inst.sg.statemem.action.target.prefab == "rock_ice" then
+                    inst.SoundEmitter:PlaySound("dontstarve_DLC001/common/iceboulder_hit")
+                else
+                    inst.SoundEmitter:PlaySound("dontstarve/wilson/use_pick_rock")
+                end
+            end),
+            
+            TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("mining") end),
+            
+        },
         
-        onenter = function(inst) 
-            inst.Physics:Stop()
-            inst.AnimState:PlayAnimation("run_pst")
+        events=
+        {
+            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
+            EventHandler("animover", function(inst) 
+                inst.AnimState:PlayAnimation("pickaxe_pst") 
+                inst.sg:GoToState("idle", true)
+            end ),
+            
+        },        
+    },
+	
+	--add Hammer
+	
+	State{
+        name = "hide",
+        tags = {"idle", "hiding"},
+        onenter = function(inst)
+            
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("hide")
+			inst.SoundEmitter:PlaySound("dontstarve/movement/foley/hidebush")
+            inst:AddTag("notarget")
+        end,
+        
+        onexit = function(inst)
+            inst:RemoveTag("notarget")
         end,
         
         events=
-        {   
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),        
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("hide_idle") end),
+        },
+    },
+
+    State{
+        name = "hide_idle",
+        tags = {"idle", "hiding"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("hide_idle", true)
+            inst:AddTag("notarget")
+        end,
+        
+        onexit = function(inst)
+            inst:RemoveTag("notarget")
+        end,
+        
+    },
+
+    State{
+        name = "shell_enter",
+        tags = {"idle", "hiding", "shell"},
+        onenter = function(inst)            
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("hideshell")
+            
+        end,
+        timeline =
+        {
+            TimeEvent(6*FRAMES, function(inst)
+                inst.SoundEmitter:PlaySound("dontstarve/movement/foley/hideshell")    
+            end),
+        },        
+        
+        onexit = function(inst)
+
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("shell_idle") end),
+        },
+    },
+
+    State{
+        name = "shell_idle",
+        tags = {"idle", "hiding", "shell"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("hideshell_idle", true)
+        end,
+        
+        onexit = function(inst)
+        end,
+        
+    },
+
+    State{
+        name = "shell_hit",
+        tags = {"busy", "hiding", "shell"},
+        
+        onenter = function(inst)
+            inst:ClearBufferedAction()
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/hit")        
+            inst.AnimState:PlayAnimation("hitshell")
+            --local sound_name = inst.soundsname or inst.prefab
+            --local sound_event = "dontstarve/characters/"..sound_name.."/hurt"
+            --inst.SoundEmitter:PlaySound(sound_event)
+            inst.components.locomotor:Stop()         
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("shell_idle") end ),
+        }, 
+        
+        timeline =
+        {
+            TimeEvent(3*FRAMES, function(inst)
+                inst.sg:RemoveStateTag("busy")
+            end),
+        },        
+               
+    },
+	
+	State{ name = "terraform",
+		tags = {"busy"},
+		
+		onenter = function(inst)
+			inst.components.locomotor:Stop()
+			inst.AnimState:PlayAnimation("shovel_pre")
+			inst.AnimState:PushAnimation("shovel_loop")
+			inst.AnimState:PushAnimation("shovel_pst", false)
+		end,
+		
+        timeline=
+        {
+            TimeEvent(25*FRAMES, function(inst) 
+                inst:PerformBufferedAction() 
+                inst.sg:RemoveStateTag("busy") 
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/dig")
+            end),
+		},
+        
+        events=
+        {
+            EventHandler("animqueueover", function(inst) inst.sg:GoToState("idle") end),
+        },
+	},
+	
+	State{ 
+		name = "dig_start",
+        tags = {"predig", "working"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("shovel_pre")
+        end,
+        
+        events=
+        {
+            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
+            EventHandler("animover", function(inst) inst.sg:GoToState("dig") end),
+        },
+    },
+    
+    State{
+        name = "dig",
+        tags = {"predig", "digging", "working"},
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("shovel_loop")
+			inst.sg.statemem.action = inst:GetBufferedAction()
+        end,
+
+        timeline=
+        {
+            TimeEvent(15*FRAMES, function(inst) 
+                inst:PerformBufferedAction() 
+                inst.sg:RemoveStateTag("predig") 
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/dig")
+                
+            end),
+            
+            TimeEvent(35*FRAMES, function(inst)
+				if inst.sg.statemem.action and 
+					inst.sg.statemem.action.target and 
+					inst.sg.statemem.action.target:IsActionValid(inst.sg.statemem.action.action, true) and
+					inst.sg.statemem.action.target.components.workable then
+						inst:ClearBufferedAction()
+						inst:PushBufferedAction(inst.sg.statemem.action)
+				end
+            end),
+            
+        },
+        
+        events=
+        {
+            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
+            EventHandler("animover", function(inst) 
+                inst.AnimState:PlayAnimation("shovel_pst") 
+                inst.sg:GoToState("idle", true)
+            end ),         
+        },        
+    },
+	
+	State{ 
+		name = "bugnet_start",
+        tags = {"prenet", "working"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("bugnet_pre")
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("bugnet") end),
+        },
+    },
+	
+	State{
+        name = "bugnet",
+        tags = {"prenet", "netting", "working"},
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("bugnet")
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/use_bugnet")
+        end,
+
+        timeline=
+        {
+            TimeEvent(10*FRAMES, function(inst) 
+                inst:PerformBufferedAction() 
+                inst.sg:RemoveStateTag("prenet") 
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/dig")
+            end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst) 
+                inst.sg:GoToState("idle", true)
+            end ),
+        },        
+    },
+
+	State {
+        name = "fish_ocean",
+        tags = {"busy", "fishing"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:Hide("RIPPLES")
+            inst.AnimState:PlayAnimation("fishing_pre") --24
+            inst.AnimState:PushAnimation("fishing_idle") --38
+            inst.AnimState:PushAnimation("fishing_idle") 
+            inst.AnimState:PushAnimation("bite_heavy_pre") --4
+            inst.AnimState:PushAnimation("bite_heavy_loop") --13
+            inst.AnimState:PushAnimation("bite_heavy_loop")
+            inst.AnimState:PushAnimation("fish_catch", false) --13
+        end,
+
+        timeline = 
+        {
+            TimeEvent(13*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_cast") end),
+            TimeEvent(15*FRAMES, function(inst) inst:PerformBufferedAction() end),
+            
+            TimeEvent(24*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_baitsplash") end),
+
+            TimeEvent(100*FRAMES, function(inst) 
+                inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishinwater", "splash")
+                inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_strain", "strain")
+            end),
+            
+            TimeEvent(130*FRAMES, function(inst) 
+                inst.SoundEmitter:KillSound("splash")
+                inst.SoundEmitter:KillSound("strain")
+            end),
+
+            TimeEvent(138*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishcaught") end),
+
+            TimeEvent(143*FRAMES, function(inst) inst.sg:RemoveStateTag("fishing") end),
+            TimeEvent(149*FRAMES, function(inst)
+                local equippedTool = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+                if equippedTool and equippedTool.components.fishingrod then
+                    equippedTool.components.fishingrod:CollectFlotsam()
+                end
+            end),
+        },
+
+        events =
+        {
+            EventHandler("animqueueover", function(inst) inst.sg:GoToState("idle") end),
+        },
+
+    },
+    
+	State{ name = "fishing_pre",
+        tags = {"prefish", "fishing"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:Show("RIPPLES")
+            inst.AnimState:PlayAnimation("fishing_pre")
+        end,
+        
+        timeline = 
+        {
+            TimeEvent(13*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_cast") end),
+            TimeEvent(15*FRAMES, function(inst) inst:PerformBufferedAction() end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst) 
+                inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_baitsplash")
+                inst.sg:GoToState("fishing")
+            end ),
+        },        
+    },
+    
+    State{
+        name = "fishing",
+        tags = {"fishing"},
+        onenter = function(inst, pushanim)
+            if pushanim then
+                if type(pushanim) == "string" then
+                    inst.AnimState:PlayAnimation(pushanim)
+                end
+                inst.AnimState:PushAnimation("fishing_idle", true)
+            else
+                inst.AnimState:PlayAnimation("fishing_idle", true)
+            end
+            local equippedTool = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+            if equippedTool and equippedTool.components.fishingrod then
+                equippedTool.components.fishingrod:WaitForFish()
+            end
+        end,
+        
+        events=
+        {
+            EventHandler("fishingnibble", function(inst) inst.sg:GoToState("fishing_nibble") end ),
+        },
+    },
+    
+    State{ name = "fishing_pst",
+        tags = {},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("fishing_pst")
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
+        },
+    },
+    
+    State{
+        name = "fishing_nibble",
+        tags = {"fishing", "nibble"},
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("bite_light_pre")
+            inst.AnimState:PushAnimation("bite_light_loop", true)
+            inst.sg:SetTimeout(1 + math.random())
+            inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishinwater", "splash")
+        end,
+        
+        onexit = function(inst)
+            inst.SoundEmitter:KillSound("splash")
+        end,
+        
+        ontimeout = function(inst)
+            inst.sg:GoToState("fishing", "bite_light_pst")
+        end,
+        
+        events = 
+        {
+            EventHandler("fishingstrain", function(inst) inst.sg:GoToState("fishing_strain") end),
+        },
+    }, 
+    
+    State{
+        name = "fishing_strain",
+        tags = {"fishing"},
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("bite_heavy_pre")
+            inst.AnimState:PushAnimation("bite_heavy_loop", true)
+            inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishinwater", "splash")
+            inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_strain", "strain")
+        end,
+        
+        onexit = function(inst)
+            inst.SoundEmitter:KillSound("splash")
+            inst.SoundEmitter:KillSound("strain")
+        end,
+        
+        events = 
+        {
+            EventHandler("fishingcatch", function(inst, data)
+                inst.sg:GoToState("catchfish", data.build)
+            end),
+            EventHandler("fishingloserod", function(inst)
+                inst.sg:GoToState("loserod")
+            end),
+
+        },
+    },
+    
+    State{
+        name = "catchfish",
+        tags = {"fishing", "catchfish", "busy"},
+        onenter = function(inst, build)
+            inst.AnimState:PlayAnimation("fish_catch")
+            inst.AnimState:OverrideSymbol("fish01", build, "fish01")
+        end,
+        
+        onexit = function(inst)
+            inst.AnimState:ClearOverrideSymbol("fish01")
+        end,
+
+        timeline=
+        {
+            TimeEvent(8*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishcaught") end),
+            TimeEvent(10*FRAMES, function(inst) inst.sg:RemoveStateTag("fishing") end),
+            TimeEvent(23*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_fishland") end),
+            TimeEvent(24*FRAMES, function(inst)
+                local equippedTool = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+                if equippedTool and equippedTool.components.fishingrod then
+                    equippedTool.components.fishingrod:Collect()
+                end
+            end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst) 
+                inst.sg:GoToState("idle")
+            end ),
+        },        
+    },       
+    
+    State{
+        name = "loserod",
+        tags = {"busy"},
+        onenter = function(inst)
+            local equippedTool = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+            if equippedTool and equippedTool.components.fishingrod then
+                equippedTool.components.fishingrod:Release()
+                equippedTool:Remove()
+            end
+            inst.AnimState:PlayAnimation("fish_nocatch")
+        end,
+
+        timeline=
+        {
+            TimeEvent(4*FRAMES, function(inst) inst.SoundEmitter:PlaySound("dontstarve/common/fishingpole_lostrod") end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst) 
+                inst.sg:GoToState("idle")
+            end ),
+        },        
+    },
+	
+	State{
+        name = "eat",
+        tags = {"busy"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/eat", "eating") 
+            inst.AnimState:PlayAnimation("eat")
+            inst.components.hunger:Pause()
+        end,
+
+        timeline=
+        {
+            
+            TimeEvent(28*FRAMES, function(inst) 
+                inst:PerformBufferedAction() 
+            end),
+            
+            TimeEvent(30*FRAMES, function(inst) 
+                inst.sg:RemoveStateTag("busy")
+            end),
+            
+            TimeEvent(70*FRAMES, function(inst) 
+	            inst.SoundEmitter:KillSound("eating")    
+	        end),
+            
+        },        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+        
+        onexit= function(inst)
+            inst.SoundEmitter:KillSound("eating")    
+            inst.components.hunger:Resume()
+        end,
+    },    
+	
+	State{
+        name = "quickeat",
+        tags ={"busy"},
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/eat", "eating")    
+            inst.AnimState:PlayAnimation("quick_eat")
+            inst.components.hunger:Pause()
+        end,
+
+        timeline=
+        {
+            TimeEvent(12*FRAMES, function(inst) 
+                inst:PerformBufferedAction() 
+                inst.sg:RemoveStateTag("busy")
+            end),
+        },        
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+        },
+        
+        onexit= function(inst)
+            inst.SoundEmitter:KillSound("eating")    
+            inst.components.hunger:Resume()
+        end,
+    },  
+	
+	State{
+        name = "talk",
+        tags = {"idle", "talking"},
+        
+        onenter = function(inst, noanim)
+            inst.components.locomotor:Stop()
+            if not noanim then
+                inst.AnimState:PlayAnimation("dial_loop", true)
+            end
+            
+            if inst.talksoundoverride then
+                inst.SoundEmitter:PlaySound(inst.talksoundoverride, "talk")
+            else
+				local sound_name = inst.soundsname
+				local path = inst.talker_path_override or "dontstarve/characters/"
+                inst.SoundEmitter:PlaySound(path..sound_name.."/talk_LP", "talk")
+            end
+
+            inst.sg:SetTimeout(1.5 + math.random()*.5)
+        end,
+        
+        ontimeout = function(inst)
+            inst.SoundEmitter:KillSound("talk")
+            inst.sg:GoToState("idle")
+        end,
+        
+        onexit = function(inst)
+            inst.SoundEmitter:KillSound("talk")
+        end,
+        
+        events=
+        {
+            EventHandler("donetalking", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+	
+	State{
+        name = "mime",
+        tags = {"idle", "talking"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            
+            for k = 1, math.random(2,3) do
+				local aname = "mime" .. tostring(math.random(8))
+				if k == 1 then
+					inst.AnimState:PlayAnimation(aname, false)
+				else
+					inst.AnimState:PushAnimation(aname, false)
+				end
+            end
+        end,
+        
+        events=
+        {
+            EventHandler("animqueueover", function(inst) inst.sg:GoToState("idle") end),
+        },
+    },
+	
+	State{
+        name = "doshortaction",
+        tags = {"doing", "busy"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("pickup")
+            inst.sg:SetTimeout(6*FRAMES)
+        end,
+        
+        
+        timeline=
+        {
+            TimeEvent(4*FRAMES, function( inst )
+                inst.sg:RemoveStateTag("busy")
+            end),
+            TimeEvent(12*FRAMES, function( inst )
+            inst.sg:RemoveStateTag("doing")
+            inst.sg:AddStateTag("idle")
+            end),
+        },
+        
+        ontimeout = function(inst)
+            inst:PerformBufferedAction()
+            
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) if inst.AnimState:AnimDone() then inst.sg:GoToState("idle") end end ),
+        },
+    },
+	
+    State{
+        name = "dolongaction",
+        tags = {"doing", "busy"},
+        
+        timeline=
+        {
+            TimeEvent(4*FRAMES, function( inst )
+                inst.sg:RemoveStateTag("busy")
+            end),
+        },
+        
+        onenter = function(inst, timeout)
+            
+            inst.sg:SetTimeout(timeout or 1)
+            inst.components.locomotor:Stop()
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/make_trap", "make")
+            
+            inst.AnimState:PlayAnimation("build_pre")
+            inst.AnimState:PushAnimation("build_loop", true)
+        end,
+        
+        ontimeout= function(inst)
+            inst.AnimState:PlayAnimation("build_pst")
+            inst.sg:GoToState("idle", false)
+            inst:PerformBufferedAction()
+        end,
+        
+        onexit= function(inst)
+            inst.SoundEmitter:KillSound("make")
+        end,
+        
+    },
+	   
+	State{
+        name = "makeballoon",
+        tags = {"doing"},
+        
+        onenter = function(inst, timeout)
+            
+            inst.sg:SetTimeout(timeout or 1)
+            inst.components.locomotor:Stop()
+            inst.SoundEmitter:PlaySound("dontstarve/common/balloon_make", "make")
+            inst.SoundEmitter:PlaySound("dontstarve/common/balloon_blowup")
+            
+            inst.AnimState:PlayAnimation("build_pre")
+            inst.AnimState:PushAnimation("build_loop", true)
+        end,
+        
+        ontimeout= function(inst)
+            inst.AnimState:PlayAnimation("build_pst")
+            inst.sg:GoToState("idle", false)
+            inst:PerformBufferedAction()
+        
+        end,
+        
+        onexit= function(inst)
+            inst.SoundEmitter:KillSound("make")
+        end,
+		        
+		events=
+        {
+            EventHandler("animover", function(inst)
+                --inst.sg:GoToState("idle")
+				local balloons = inst.components.inventory:FindItem(function(item) return item.prefab == "dsaballoons_empty" end)
+				if balloons then
+					inst.components.inventory:DropItem(balloons)
+				end
+            end),
         },
     },    
-   
+	
+	--add Special tools
+	
+	State{
+        name = "book",
+        tags = {"doing"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("book")
+            inst.AnimState:OverrideSymbol("book_open", "player_actions_uniqueitem", "book_open")
+            inst.AnimState:OverrideSymbol("book_closed", "player_actions_uniqueitem", "book_closed")
+            inst.AnimState:OverrideSymbol("book_open_pages", "player_actions_uniqueitem", "book_open_pages")
+            --inst.AnimState:Hide("ARM_carry") 
+            inst.AnimState:Show("ARM_normal")
+            if inst.components.inventory.activeitem and inst.components.inventory.activeitem.components.book then
+                inst.components.inventory:ReturnActiveItem()
+            end
+            inst.SoundEmitter:PlaySound("dontstarve/common/use_book")
+        end,
+        
+        onexit = function(inst)
+            if inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) then
+                inst.AnimState:Show("ARM_carry") 
+                inst.AnimState:Hide("ARM_normal")
+            end
+            if inst.sg.statemem.book_fx then
+                inst.sg.statemem.book_fx:Remove()
+                inst.sg.statemem.book_fx = nil
+            end
+        end,
+        
+        timeline=
+        {
+            TimeEvent(0, function(inst)
+                local fxtoplay = "book_fx"
+                if inst.prefab == "dsawaxwell" then
+                    fxtoplay = "waxwell_book_fx" 
+                end       
+                local fx = SpawnPrefab(fxtoplay)
+                local pos = inst:GetPosition()
+                fx.Transform:SetRotation(inst.Transform:GetRotation())
+                fx.Transform:SetPosition( pos.x, pos.y - .2, pos.z ) 
+                inst.sg.statemem.book_fx = fx
+            end),
+
+            TimeEvent(28*FRAMES, function(inst) 
+                if inst.prefab == "dsawaxwell" then
+                    inst.SoundEmitter:PlaySound("dontstarve/common/use_book_dark")
+                else
+                    inst.SoundEmitter:PlaySound("dontstarve/common/use_book_light")
+                end
+            end),
+
+            TimeEvent(58*FRAMES, function(inst)
+                inst.SoundEmitter:PlaySound("dontstarve/common/book_spell")
+                inst:PerformBufferedAction()
+                inst.sg.statemem.book_fx = nil
+            end),
+
+            TimeEvent(62*FRAMES, function(inst) 
+                inst.SoundEmitter:PlaySound("dontstarve/common/use_book_close")
+            end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle")
+				local book = inst.components.inventory:FindItem(function(item) return item.prefab == "dsabook_gardening" or item.prefab == "dsabook_tentacle" or item.prefab == "dsabook_birds" or item.prefab == "dsabook_sleep" or item.prefab == "dsabook_brimstone" or item.prefab == "dsawaxwelljournal" end)
+				if book then
+					inst.components.inventory:DropItem(book)
+				end
+            end),
+        },
+    },
+	
+	State{
+        name = "blowdart",
+        tags = {"attack", "notalking", "abouttoattack"},
+        
+        onenter = function(inst)
+            inst.sg.statemem.target = inst.components.combat.target
+            inst.components.combat:StartAttack()
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("dart")
+            
+            if inst.components.combat.target then
+                if inst.components.combat.target and inst.components.combat.target:IsValid() then
+                    inst:FacePoint(Point(inst.components.combat.target.Transform:GetWorldPosition()))
+                end
+            end
+        end,
+        
+        timeline=
+        {
+            TimeEvent(8*FRAMES, function(inst)
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/blowdart_shoot")
+            end),
+            TimeEvent(10*FRAMES, function(inst)
+                inst.sg:RemoveStateTag("abouttoattack")
+                inst.components.combat:DoAttack(inst.sg.statemem.target)
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/blowdart_shoot")
+            end),
+            TimeEvent(20*FRAMES, function(inst) inst.sg:RemoveStateTag("attack") end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle")
+            end),
+        },
+    },
+	
+	State{
+        name = "throw",
+        tags = {"attack", "notalking", "abouttoattack"},
+        
+        onenter = function(inst)
+            inst.sg.statemem.target = inst.components.combat.target
+            inst.components.combat:StartAttack()
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("throw")
+            
+            if inst.components.combat.target then
+                if inst.components.combat.target and inst.components.combat.target:IsValid() then
+                    inst:FacePoint(inst.components.combat.target.Transform:GetWorldPosition())
+                end
+            end
+            
+        end,
+        
+        timeline=
+        {
+            TimeEvent(7*FRAMES, function(inst) inst.components.combat:DoAttack(inst.sg.statemem.target) inst.sg:RemoveStateTag("abouttoattack") end),
+            TimeEvent(11*FRAMES, function(inst) inst.sg:RemoveStateTag("attack") end),
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle")
+            end),
+        },
+    },
+	
+	State{
+        name = "catch_pre",
+        tags = {"notalking", "readytocatch"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("catch_pre")
+            inst:PerformBufferedAction()
+            inst.sg:SetTimeout(2)
+        end,
+        
+        ontimeout= function(inst)
+            inst.sg:GoToState("idle")
+        end,
+        
+        events=
+        {
+            EventHandler("catch", function(inst)
+                inst.sg:GoToState("catch")
+            end),
+        },
+    },
+    
     State{
+        name = "catch",
+        tags = {"busy", "notalking"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("catch")
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/boomerang_catch")
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle")
+            end),
+        },
+    },
+
+    State{
+        name = "shoot",
+        tags = {"attack", "notalking", "abouttoattack", "busy"},
+        
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("shoot")            
+            if inst.components.combat.target then
+                inst.components.combat:BattleCry()
+                if inst.components.combat.target and inst.components.combat.target:IsValid() then
+                    inst:FacePoint(Point(inst.components.combat.target.Transform:GetWorldPosition()))
+                end
+            end
+            inst.sg.statemem.target = inst.components.combat.target
+            inst.components.combat:StartAttack()
+            inst.components.locomotor:Stop()            
+        end,
+        
+        timeline=
+        {
+            TimeEvent(17*FRAMES, function(inst) 
+                inst.components.combat:DoAttack(inst.sg.statemem.target) 
+                inst.sg:RemoveStateTag("abouttoattack") 
+            end),            
+            TimeEvent(20*FRAMES, function(inst)
+                    inst.sg:RemoveStateTag("attack")
+            end),                       
+        },
+        
+        events=
+        {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle")
+            end ),
+        },
+    },
+	
+	State{
         name = "attack",
         --tags = {"attack"},
         tags = {"attack", "notalking", "abouttoattack", "busy"},
@@ -364,237 +1499,182 @@ local states=
         },
     },
 	
-    State{ name = "chop_start",
-        tags = {"prechop", "chopping", "working"},
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-			if inst.prefab == "dsawoodie" then
-				inst.AnimState:PlayAnimation("woodie_chop_pre")
-			else
-				inst.AnimState:PlayAnimation("chop_pre")
-			end
-        end,
+	State{
+        name = "run_start",
+        tags = {"moving", "running", "canrotate"},
         
+        onenter = function(inst)
+			inst.components.locomotor:RunForward()
+            inst.AnimState:PlayAnimation("run_pre")
+            inst.sg.mem.foosteps = 0
+        end,
+
+        onupdate = function(inst)
+            inst.components.locomotor:RunForward()
+        end,
+
         events=
-        {
-            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
-            EventHandler("animover", function(inst) inst.sg:GoToState("chop") end),
+        {   
+            EventHandler("animover", function(inst) inst.sg:GoToState("run") end ),        
         },
-    },
-	
-    State{
-        name = "chop",
-        tags = {"prechop", "chopping", "working"},
-        
-        onenter = function(inst)
-            inst.Physics:Stop()
-			if inst.prefab == "dsawoodie" then
-				inst.AnimState:PlayAnimation("woodie_chop_loop")
-			else
-				inst.AnimState:PlayAnimation("chop_loop")
-			end
-        end,
         
         timeline=
         {
-			TimeEvent(2*FRAMES, function(inst) 
-									if inst.prefab == "dsawoodie" then 
-										inst:PerformBufferedAction() 
-									end 
-								end),
-			TimeEvent(5*FRAMES, function(inst) 
-									if inst.prefab ~= "dsawoodie" then 
-										inst:PerformBufferedAction() 
-									end
-								end),
-            TimeEvent(9*FRAMES, function(inst) if inst.prefab == "dsawoodie" then 
-										inst.sg:RemoveStateTag("prechop") 
-									end 
-								end),
-            TimeEvent(12*FRAMES, function(inst) if inst.prefab ~= "dsawoodie" then 
-										inst.sg:RemoveStateTag("prechop")
-									end 
-								end),
-
-            TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("chopping") end),
-        },
         
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+            TimeEvent(4*FRAMES, function(inst)
+                PlayFootstep(inst)
+                DoFoleySounds(inst)
+            end),
         },
     },
-	
-	State{ name = "mine_start",
-        tags = {"premine", "working"},
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.AnimState:PlayAnimation("pickaxe_pre")
+
+    State{
+        name = "run",
+        tags = {"moving", "running", "canrotate"},
+        
+        onenter = function(inst) 
+            inst.components.locomotor:RunForward()
+            inst.AnimState:PlayAnimation("run_loop")
+            
         end,
         
-        events=
+        onupdate = function(inst)
+            inst.components.locomotor:RunForward()
+        end,
+
+        timeline=
         {
-            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
-            EventHandler("animover", function(inst) inst.sg:GoToState("mine") end),
+            TimeEvent(7*FRAMES, function(inst)
+				inst.sg.mem.foosteps = inst.sg.mem.foosteps + 1
+                PlayFootstep(inst, inst.sg.mem.foosteps < 5 and 1 or .6)
+                DoFoleySounds(inst)
+            end),
+            TimeEvent(15*FRAMES, function(inst)
+				inst.sg.mem.foosteps = inst.sg.mem.foosteps + 1
+                PlayFootstep(inst, inst.sg.mem.foosteps < 5 and 1 or .6)
+                DoFoleySounds(inst)
+            end),
         },
+        
+        events=
+        {   
+            EventHandler("animover", function(inst) inst.sg:GoToState("run") end ),        
+        },  
     },
     
     State{
-        name = "mine",
-        tags = {"premine", "mining", "working"},
-        onenter = function(inst)
-			inst.sg.statemem.action = inst:GetBufferedAction()
-            inst.AnimState:PlayAnimation("pickaxe_loop")
-        end,
-
-        timeline=
-        {
-            TimeEvent(12*FRAMES, function(inst) 
-                if inst.sg.statemem.action and inst.sg.statemem.action.target then
-					local fx = SpawnPrefab("mining_fx")
-					fx.Transform:SetPosition(inst.sg.statemem.action.target:GetPosition():Get())
-					print('fx',GetTime())
-				end
-                inst:PerformBufferedAction() 
-                inst.sg:RemoveStateTag("premine") 
-                inst.SoundEmitter:PlaySound("dontstarve/wilson/use_pick_rock")
-            end),
-            
-            TimeEvent(16*FRAMES, function(inst) inst.sg:RemoveStateTag("mining") end),
-            
-        },
+        name = "run_stop",
+        tags = {"canrotate", "idle"},
         
-        events=
-        {
-            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
-            EventHandler("animover", function(inst) 
-                inst.AnimState:PlayAnimation("pickaxe_pst") 
-                inst.sg:GoToState("idle", true)
-            end ),
-            
-        },        
-    },
-	
-	State{ name = "dig_start",
-        tags = {"predig", "working"},
-        onenter = function(inst)
+        onenter = function(inst) 
             inst.components.locomotor:Stop()
-            inst.AnimState:PlayAnimation("shovel_pre")
+            inst.AnimState:PlayAnimation("run_pst")
         end,
         
         events=
-        {
-            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
-            EventHandler("animover", function(inst) inst.sg:GoToState("dig") end),
-        },
-    },
-    
-    State{
-        name = "dig",
-        tags = {"predig", "digging", "working"},
-        onenter = function(inst)
-            inst.AnimState:PlayAnimation("shovel_loop")
-			inst.sg.statemem.action = inst:GetBufferedAction()
-        end,
-
-        timeline=
-        {
-            TimeEvent(15*FRAMES, function(inst) 
-                inst:PerformBufferedAction() 
-                inst.sg:RemoveStateTag("predig") 
-                inst.SoundEmitter:PlaySound("dontstarve/wilson/dig")
-                
-            end),
-            
-            TimeEvent(35*FRAMES, function(inst)
-				if inst.sg.statemem.action and 
-					inst.sg.statemem.action.target and 
-					inst.sg.statemem.action.target:IsActionValid(inst.sg.statemem.action.action, true) and
-					inst.sg.statemem.action.target.components.workable then
-						inst:ClearBufferedAction()
-						inst:PushBufferedAction(inst.sg.statemem.action)
-				end
-            end),
-            
-        },
-        
-        events=
-        {
-            EventHandler("unequip", function(inst) inst.sg:GoToState("idle") end ),
-            EventHandler("animover", function(inst) 
-                inst.AnimState:PlayAnimation("shovel_pst") 
-                inst.sg:GoToState("idle", true)
-            end ),         
-        },        
-    },       
-	
-    State{
-        name = "eat",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.SoundEmitter:PlaySound("dontstarve/wilson/eat", "eating") 
-            inst.AnimState:PlayAnimation("eat")
-            inst.components.hunger:Pause()
-        end,
-
-        timeline=
-        {
-            
-            TimeEvent(28*FRAMES, function(inst) 
-                inst:PerformBufferedAction() 
-            end),
-            
-            TimeEvent(30*FRAMES, function(inst) 
-                inst.sg:RemoveStateTag("busy")
-            end),
-            
-            TimeEvent(70*FRAMES, function(inst) 
-	            inst.SoundEmitter:KillSound("eating")    
-	        end),
-            
-        },        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
-        },
-        
-        onexit= function(inst)
-            inst.SoundEmitter:KillSound("eating")    
-            inst.components.hunger:Resume()
-        end,
+        {   
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),        
+        }, 
     },    
 	
 	State{
-        name = "quickeat",
-        tags ={"busy"},
+        name = "item_hat",
+        tags = {"idle"},
+        
         onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.SoundEmitter:PlaySound("dontstarve/wilson/eat", "eating")    
-            inst.AnimState:PlayAnimation("quick_eat")
-            inst.components.hunger:Pause()
+            inst.components.locomotor:StopMoving()
+            inst.AnimState:PlayAnimation("item_hat")
         end,
-
-        timeline=
-        {
-            TimeEvent(12*FRAMES, function(inst) 
-                inst:PerformBufferedAction() 
-                inst.sg:RemoveStateTag("busy")
-            end),
-        },        
         
         events=
         {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
         },
-        
-        onexit= function(inst)
-            inst.SoundEmitter:KillSound("eating")    
-            inst.components.hunger:Resume()
-        end,
     },  
 	
     State{
+        name = "item_in",
+        tags = {"idle"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.AnimState:PlayAnimation("item_in")
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
+        },
+    }, 
+	
+	State{
+        name = "item_out",
+        tags = {"idle"},
+        
+        onenter = function(inst)
+            inst.components.locomotor:StopMoving()
+            inst.AnimState:PlayAnimation("item_out")
+        end,
+        
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
+        },
+    },  
+	
+	State{
+        name = "give",
+        
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.AnimState:PlayAnimation("give") 
+        end,
+        
+        timeline =
+        {
+            TimeEvent(13*FRAMES, function(inst)
+                inst:PerformBufferedAction()
+            end),
+        },        
+
+        events=
+        {
+            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
+        },
+    },   
+	
+	State{
+        name = "bedroll",
+        
+		--tags = {"busy"},
+
+        onenter = function(inst)
+            inst.components.locomotor:Stop()
+            inst.components.health:SetInvincible(true)
+            inst.AnimState:PlayAnimation("bedroll")
+             
+        end,
+        
+        onexit = function(inst)
+            inst.components.health:SetInvincible(false)
+        	inst.AnimState:ClearOverrideSymbol("bedroll")          
+        end,
+        
+        
+        timeline=
+        {
+            TimeEvent(20*FRAMES, function(inst) 
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/use_bedroll")
+            end),
+        },
+        
+		events=
+		{        
+			EventHandler("onwakeup", function(inst) inst.sg:GoToState("wakeup") end),
+		},
+    },
+	
+	State{
         name = "hit",
         tags = {"busy"},
         
@@ -603,8 +1683,10 @@ local states=
             inst.SoundEmitter:PlaySound("dontstarve/wilson/hit")        
             inst.AnimState:PlayAnimation("hit")    
             inst.Physics:Stop()
-			local sound_event = "dontstarve/characters/woodie/hurt"
-            inst.SoundEmitter:PlaySound(sound_event)          
+			local sound_name = inst.soundsname
+			local path = inst.talker_path_override or "dontstarve/characters/"
+			local sound_event = path..sound_name.."/hurt"
+			inst.SoundEmitter:PlaySound(inst.hurtsoundoverride or sound_event)      
         end,
         
         events=
@@ -683,41 +1765,61 @@ local states=
     },
 	
 	State{
-        name = "talk",
-        tags = {"idle", "talking"},
-        
-        onenter = function(inst, noanim)
-            inst.components.locomotor:Stop()
-            if not noanim then
-                inst.AnimState:PlayAnimation("dial_loop", true)
-            end
-            
-            if inst.talksoundoverride then
-                inst.SoundEmitter:PlaySound(inst.talksoundoverride, "talk")
-            else
-				local sound_name = string.sub(inst.prefab, 4)
-                inst.SoundEmitter:PlaySound("dontstarve/characters/"..sound_name.."/talk_LP", "talk")
-            end
+        name = "castspell",
+        tags = {"doing", "busy", "canrotate"},
 
-            inst.sg:SetTimeout(1.5 + math.random()*.5)
+        onenter = function(inst)
+            inst.components.playercontroller:Enable(false)
+            inst.AnimState:PlayAnimation("staff") 
+            local colourizefx = function(staff)
+                return staff.fxcolour or {1,1,1}
+            end
+            inst.components.locomotor:Stop()
+            --Spawn an effect on the player's location
+            inst.stafffx = SpawnPrefab("staffcastfx")            
+
+            local pos = inst:GetPosition()
+            local staff = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+            inst.stafffx.Transform:SetPosition(pos.x, pos.y, pos.z)
+            local colour = colourizefx(staff)
+
+            inst.stafffx.Transform:SetRotation(inst.Transform:GetRotation())
+            inst.stafffx.AnimState:SetMultColour(colour[1], colour[2], colour[3], 1)
         end,
-        
-        ontimeout = function(inst)
-            inst.SoundEmitter:KillSound("talk")
-            inst.sg:GoToState("idle")
-        end,
-        
+
         onexit = function(inst)
-            inst.SoundEmitter:KillSound("talk")
+            inst.components.playercontroller:Enable(true)
+            if inst.stafffx then
+                inst.stafffx:Remove()
+            end
         end,
-        
-        events=
+
+        timeline = 
         {
-            EventHandler("donetalking", function(inst) inst.sg:GoToState("idle") end),
+            TimeEvent(13*FRAMES, function(inst)
+                inst.SoundEmitter:PlaySound("dontstarve/wilson/use_gemstaff") 
+            end),
+            TimeEvent(0*FRAMES, function(inst)
+                inst.stafflight = SpawnPrefab("staff_castinglight")
+                local staff = inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS)
+                local pos = inst:GetPosition()
+                local colour = staff.fxcolour or {1,1,1}
+                inst.stafflight.Transform:SetPosition(pos.x, pos.y, pos.z)
+                inst.stafflight.setupfn(inst.stafflight, colour, 1.9, .33)                
+
+            end),
+            TimeEvent(53*FRAMES, function(inst) inst:PerformBufferedAction() end),
         },
-    }, 
+
+        events = {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle") 
+            end ),
+        },
+
+    },
 	
-    State{
+	State{
         name = "werebeaver",
         tags = {"busy"},
         onenter = function(inst)
@@ -739,10 +1841,34 @@ local states=
         {
             EventHandler("animover", function(inst)
 	            inst.components.beaverness.makebeaver(inst)
+                inst.components.sanity:SetPercent(.25)
+                inst.components.health:SetPercent(.33)
+                inst.components.hunger:SetPercent(.25)
                 inst.sg:GoToState("transform_pst")
             end ),
         } 
     },
+	
+    State{
+        name = "quicktele",
+        tags = {"doing", "busy", "canrotate"},
+
+        onenter = function(inst)
+            inst.AnimState:PlayAnimation("atk")
+            inst.SoundEmitter:PlaySound("dontstarve/wilson/attack_weapon")
+        end,
+
+        timeline = 
+        {
+            TimeEvent(8*FRAMES, function(inst) inst:PerformBufferedAction() end),
+        },
+
+        events = {
+            EventHandler("animover", function(inst)
+                inst.sg:GoToState("idle") 
+            end ),
+        },
+    }, 
 
 	State{
         name = "towoodie",
@@ -758,399 +1884,12 @@ local states=
         ontimeout = function(inst) 
             inst:DoTaskInTime(2, function() 
                 inst.components.beaverness.makeperson(inst)
-                inst.components.sanity:SetPercent(.25)
-                inst.components.health:SetPercent(.33)
-                inst.components.hunger:SetPercent(.25)
                 inst.components.beaverness.doing_transform = false
                 inst.sg:GoToState("wakeup")
             end)
         end
     },
-	    
-	State{
-        name = "wakeup",
-
-        onenter = function(inst)
-            inst.AnimState:PlayAnimation("wakeup")
-            inst.components.health:SetInvincible(true)
-			if inst.components.sleeper and inst.components.sleeper:IsAsleep() then
-				inst.components.sleeper:WakeUp()
-			end
-        end,
-        
-        onexit = function(inst)
-            inst.components.health:SetInvincible(false)
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
-        },
-    },
-
-    State{
-        name = "transform_pst",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.Physics:Stop()            
-            inst.AnimState:PlayAnimation("transform_pst")
-            inst.components.health:SetInvincible(true)
-        end,
-        
-        onexit = function(inst)
-            inst.components.health:SetInvincible(false)
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
-        },        
-    },  
-	
-    State{
-        name = "death",
-        tags = {"busy"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.AnimState:Hide("swap_arm_carry")
-            inst.AnimState:PlayAnimation("death")        
-            inst.components.lootdropper:DropLoot(Vector3(inst.Transform:GetWorldPosition()))    
-        end,
-		
-        --[[events=
-        {
-            EventHandler("animover", function(inst) 	
-				local skeleton = SpawnPrefab("skeleton")
-				local spawnPoint = inst:GetPosition()
-				skeleton.components.lootdropper:SetLoot({"dsawoodieskull"})
-				skeleton.Transform:SetPosition(spawnPoint:Get())
-			end ),
-        }, ]]
-    },  
-	
-    State{
-        name="item_hat",
-        tags = {"idle"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("item_hat")
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
-        },
-    },  
-	
-    State{
-        name="item_in",
-        tags = {"idle"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("item_in")
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
-        },
-    }, 
-	
-	State{
-        name="item_out",
-        tags = {"idle"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:StopMoving()
-            inst.AnimState:PlayAnimation("item_out")
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end ),
-        },
-    },  
-	
-    State{
-        name = "doshortaction",
-        tags = {"doing", "busy"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.AnimState:PlayAnimation("pickup")
-            inst.sg:SetTimeout(6*FRAMES)
-        end,
-        
-        
-        timeline=
-        {
-            TimeEvent(4*FRAMES, function( inst )
-                inst.sg:RemoveStateTag("busy")
-            end),
-            TimeEvent(10*FRAMES, function( inst )
-            inst.sg:RemoveStateTag("doing")
-            inst.sg:AddStateTag("idle")
-            end),
-        },
-        
-        ontimeout = function(inst)
-            inst:PerformBufferedAction()
-            
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) if inst.AnimState:AnimDone() then inst.sg:GoToState("idle") end end ),
-        },
-    },
-	
-    State{
-        name = "dolongaction",
-        tags = {"doing", "busy"},
-        
-        timeline=
-        {
-            TimeEvent(4*FRAMES, function( inst )
-                inst.sg:RemoveStateTag("busy")
-            end),
-        },
-        
-        onenter = function(inst, timeout)
-            
-            inst.sg:SetTimeout(timeout or 1)
-            inst.components.locomotor:Stop()
-            inst.SoundEmitter:PlaySound("dontstarve/wilson/make_trap", "make")
-            
-            inst.AnimState:PlayAnimation("build_pre")
-            inst.AnimState:PushAnimation("build_loop", true)
-        end,
-        
-        ontimeout= function(inst)
-            inst.AnimState:PlayAnimation("build_pst")
-            inst.sg:GoToState("idle", false)
-            inst:PerformBufferedAction()
-        end,
-        
-        onexit= function(inst)
-            inst.SoundEmitter:KillSound("make")
-        end,
-        
-    },	
-	
-	State{
-        name = "powerup",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.Physics:Stop()
-            inst.AnimState:PlayAnimation("powerup")
-            inst.components.health:SetInvincible(true)
-        end,
-        
-        onexit = function(inst)
-            inst.components.health:SetInvincible(false)
-            
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
-        },
-    },
-	
-    State{
-        name = "powerdown",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.Physics:Stop()
-            inst.AnimState:PlayAnimation("powerdown")
-            inst.components.health:SetInvincible(true)
-        end,
-        
-        onexit = function(inst)
-            inst.components.health:SetInvincible(false)
-            
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst) inst.sg:GoToState("idle") end),
-        },
-    },
-
-	State{
-        name = "sleep",
-        
-        onenter = function(inst)
-            inst.AnimState:PlayAnimation("sleep")
-            inst.components.health:SetInvincible(true)
-        end,
-
-        onexit=function(inst)
-            inst.components.health:SetInvincible(false)
-        end,
-
-    },
-	
-	State{
-        name = "bedroll",
-        
-		--tags = {"busy"},
-
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.components.health:SetInvincible(true)
-            inst.AnimState:PlayAnimation("bedroll")
-             
-        end,
-        
-        onexit = function(inst)
-            inst.components.health:SetInvincible(false)
-        	inst.AnimState:ClearOverrideSymbol("bedroll")          
-        end,
-        
-        
-        timeline=
-        {
-            TimeEvent(20*FRAMES, function(inst) 
-                inst.SoundEmitter:PlaySound("dontstarve/wilson/use_bedroll")
-            end),
-        },
-        
-		events=
-		{        
-			EventHandler("onwakeup", function(inst) inst.sg:GoToState("wakeup") end),
-		},
-    },  
-	
-    State{
-        name = "book",
-        tags = {"doing"},
-        
-        onenter = function(inst)
-            inst.components.locomotor:Stop()
-            inst.AnimState:PlayAnimation("book")
-            inst.AnimState:OverrideSymbol("book_open", "player_actions_uniqueitem", "book_open")
-            inst.AnimState:OverrideSymbol("book_closed", "player_actions_uniqueitem", "book_closed")
-            inst.AnimState:OverrideSymbol("book_open_pages", "player_actions_uniqueitem", "book_open_pages")
-            --inst.AnimState:Hide("ARM_carry") 
-            inst.AnimState:Show("ARM_normal")
-            if inst.components.inventory.activeitem and inst.components.inventory.activeitem.components.book then
-                inst.components.inventory:ReturnActiveItem()
-            end
-            inst.SoundEmitter:PlaySound("dontstarve/common/use_book")
-        end,
-        
-        onexit = function(inst)
-            if inst.components.inventory:GetEquippedItem(EQUIPSLOTS.HANDS) then
-                inst.AnimState:Show("ARM_carry") 
-                inst.AnimState:Hide("ARM_normal")
-            end
-            if inst.sg.statemem.book_fx then
-                inst.sg.statemem.book_fx:Remove()
-                inst.sg.statemem.book_fx = nil
-            end
-        end,
-        
-        timeline=
-        {
-            TimeEvent(0, function(inst)
-                local fxtoplay = "book_fx"
-                if inst.prefab == "waxwell" then
-                    fxtoplay = "waxwell_book_fx" 
-                end       
-                local fx = SpawnPrefab(fxtoplay)
-                local pos = inst:GetPosition()
-                fx.Transform:SetRotation(inst.Transform:GetRotation())
-                fx.Transform:SetPosition( pos.x, pos.y - .2, pos.z ) 
-                inst.sg.statemem.book_fx = fx
-            end),
-
-            TimeEvent(28*FRAMES, function(inst) 
-                if inst.prefab == "waxwell" then
-                    inst.SoundEmitter:PlaySound("dontstarve/common/use_book_dark")
-                else
-                    inst.SoundEmitter:PlaySound("dontstarve/common/use_book_light")
-                end
-            end),
-
-            TimeEvent(58*FRAMES, function(inst)
-                inst.SoundEmitter:PlaySound("dontstarve/common/book_spell")
-                inst:PerformBufferedAction()
-                inst.sg.statemem.book_fx = nil
-            end),
-
-            TimeEvent(62*FRAMES, function(inst) 
-                inst.SoundEmitter:PlaySound("dontstarve/common/use_book_close")
-            end),
-        },
-        
-        events=
-        {
-            EventHandler("animover", function(inst)
-                inst.sg:GoToState("idle")
-            end),
-        },
-    },
-
-    State{
-        name = "electrocute",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.Physics:Stop()
-            inst.AnimState:PlayAnimation("shock")
-            --inst.AnimState:SetBloomEffectHandle("shaders/anim.ksh")
-            inst.fx = SpawnPrefab("shock_fx")
-
-            inst.fx.Transform:SetRotation(inst.Transform:GetRotation())
-
-            local pos = inst:GetPosition()
-            inst.fx.Transform:SetPosition(pos.x, pos.y, pos.z)
-            if inst.prefab ~= "dsawx78" then
-                --inst.Light:Enable(true)
-            end
-            if inst.prefab ~= "dsawes" then
-				local sound_name = string.sub(inst.prefab, 4)
-                local path = inst.talker_path_override or "dontstarve/characters/"
-                local sound_event = path..sound_name.."/hurt"
-                inst.SoundEmitter:PlaySound(inst.hurtsoundoverride or sound_event)
-            end
-        end,
-
-        onexit = function(inst)
-            if inst.prefab ~= "wx78" then
-                --inst.Light:Enable(false)
-            end
-            --inst.AnimState:ClearBloomEffectHandle()
-            inst.fx:Remove()
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst)
-                inst.sg:GoToState("electrocute_pst")
-            end),
-        },
-    },
-    State{
-        name = "electrocute_pst",
-        tags = {"busy"},
-        onenter = function(inst)
-            inst.Physics:Stop()
-            inst.AnimState:PlayAnimation("shock_pst")
-        end,
-        
-        events=
-        {
-            EventHandler("animover", function(inst)
-                inst.sg:GoToState("idle") 
-            end),
-        },
-    },	
 }
-    
 return StateGraph("follower", states, events, "idle", actionhandlers)
 
 

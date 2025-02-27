@@ -117,7 +117,7 @@ function sleepfn(inst, reader)
     local pos = Vector3(reader.Transform:GetWorldPosition())
     local ents = TheSim:FindEntities(pos.x,pos.y,pos.z, range)
     for k,v in pairs(ents) do
-        if v.components.sleeper and v ~= reader and not v:HasTag('summonedbyplayer') then
+        if v.components.sleeper and v ~= reader and not v:HasTag('resurrected') then
             v.components.sleeper:AddSleepiness(10, 20)
         end
     end
@@ -162,6 +162,9 @@ function MakeBook(name, usefn, bookuses )
 
         anim:PlayAnimation(model)
         MakeInventoryPhysics(inst)
+		if IsDLCEnabled(CAPY_DLC) then
+			MakeInventoryFloatable(inst, "idle_water", "idle")
+		end
         
         -----------------------------------
         

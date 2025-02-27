@@ -14,6 +14,10 @@ local prefabs =
 }    
 
 
+local function GetWendy()
+    return TheSim:FindFirstEntityWithTag("wendy")
+end
+
 local function getstatus(inst)
     if inst.components.cooldown:IsCharged() then
         if inst.components.inventoryitem.owner then
@@ -50,11 +54,29 @@ local function updateimage(inst)
 		inst.AnimState:SetBloomEffectHandle( "" )
 		if inst.components.cooldown:GetTimeToCharged() < TUNING.TOTAL_DAY_TIME then
 			inst.components.inventoryitem:ChangeImageName("abigail_flower2")
-			inst.AnimState:PlayAnimation("idle_2")
+			
+			if IsDLCEnabled(CAPY_DLC) then
+				inst.components.floatable:UpdateAnimations("idle_2_water", "idle_2")
+				if inst.components.floatable.onwater then
+					inst.AnimState:PlayAnimation("idle_2_water")
+				else
+					inst.AnimState:PlayAnimation("idle_2")
+				end
+			else
+				inst.AnimState:PlayAnimation("idle_2")
+			end
 		else
 			inst.components.inventoryitem:ChangeImageName("abigail_flower")
-		    inst.AnimState:PlayAnimation("idle_1")
-
+			if IsDLCEnabled(CAPY_DLC) then
+				inst.components.floatable:UpdateAnimations("idle_1_water", "idle_1")
+				if inst.components.floatable.onwater then
+					inst.AnimState:PlayAnimation("idle_1_water")
+				else
+					inst.AnimState:PlayAnimation("idle_1")
+				end
+			else
+				inst.AnimState:PlayAnimation("idle_1")
+			end
 		end
 	end
 end
@@ -68,9 +90,10 @@ local function oncharged(inst)
 end
 
 local function ondeath(inst, deadthing)
+	local wendy = GetWendy()
     if inst and deadthing and inst.components.inventoryitem and inst:IsValid() and deadthing:IsValid() and inst.components.inventoryitem.owner == nil and not deadthing:HasTag("wall") and inst:GetDistanceSqToInst(deadthing) < 16*16 then
-        if inst.components.cooldown:IsCharged() then
-            GetPlayer().components.sanity:DoDelta(-TUNING.SANITY_HUGE)
+        if inst.components.cooldown:IsCharged() and wendy then
+            wendy.components.sanity:DoDelta(-TUNING.SANITY_HUGE)
             local abigail = SpawnPrefab("dsaabigail")
             abigail.Transform:SetPosition(inst.Transform:GetWorldPosition())
             inst.SoundEmitter:PlaySound("dontstarve/common/ghost_spawn")
@@ -98,6 +121,9 @@ local function fn(Sim)
     anim:SetBuild("abigail_flower")
     anim:PlayAnimation("idle1")
     MakeInventoryPhysics(inst)
+	if IsDLCEnabled(CAPY_DLC) then
+		MakeInventoryFloatable(inst, "idle_water", "idle")
+	end
     inst:AddTag("irreplaceable")
     
     local minimap = inst.entity:AddMiniMapEntity()
@@ -111,7 +137,9 @@ local function fn(Sim)
 	inst.components.inspectable.nameoverride = "abigail_flower"
     inst.components.inspectable.getstatus = getstatus
 
-    --inst.components.inventoryitem:ChangeImageName("heat_rock"..tostring(range))
+    --inst:AddComponent("dsacharacterspecific")
+    --inst.components.dsacharacterspecific:SetOwner("dsawendy")
+	
     inst:AddComponent("cooldown")
     inst.components.cooldown.cooldown_duration = TUNING.TOTAL_DAY_TIME + math.random()*TUNING.TOTAL_DAY_TIME*2
     inst.components.cooldown.onchargedfn = oncharged

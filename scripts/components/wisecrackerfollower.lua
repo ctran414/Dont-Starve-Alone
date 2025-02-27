@@ -1,6 +1,6 @@
 local WisecrackerFollower = Class(function(self, inst)
     self.inst = inst 
-    self.time_to_convo = 10
+    self.time_to_convo = math.random(60, 120)
     self.time_in_lightstate = 0
     self.inlight = true
 
@@ -10,7 +10,8 @@ local WisecrackerFollower = Class(function(self, inst)
 		    			
 				if data.food.prefab == "spoiled_food" then
 					inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_EAT", "SPOILED"))
-				elseif data.food.components.edible:GetHealth(inst) < 0 and data.food.components.edible:GetSanity(inst) <= 0 then
+				elseif data.food.components.edible:GetHealth(inst) < 0 and data.food.components.edible:GetSanity(inst) <= 0 and not
+                (inst.prefab == "dsawebber" and data.food:HasTag("monstermeat"))  then
 					inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_EAT", "PAINFUL"))
 				elseif data.food.components.perishable and not data.food.components.perishable:IsFresh() then
 					if data.food.components.perishable:IsStale() then
@@ -51,9 +52,16 @@ local WisecrackerFollower = Class(function(self, inst)
 			inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_COLD"))
         end)
 		
-    inst:ListenForEvent("torchranout", function(inst, data)
-            inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_TORCH_OUT"))
-    end)
+    inst:ListenForEvent("startoverheating", 
+        function(inst, data) 
+            inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_HOT"))
+        end)
+		
+    inst:ListenForEvent("inventoryfull", function(it, data) 
+			if inst.components.inventory:IsFull() then
+				inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_INV_FULL"))
+			end
+        end)  		
 
     inst:ListenForEvent("heargrue", function(inst, data)
             inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_CHARLIE"))
@@ -72,11 +80,19 @@ local WisecrackerFollower = Class(function(self, inst)
     end)
 
     inst:ListenForEvent("huntlosttrail", function(inst, data)
-        inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_HUNT_LOST_TRAIL"))
+        if data.washedaway then
+            inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_HUNT_LOST_TRAIL_SPRING"))
+        else
+            inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_HUNT_LOST_TRAIL"))
+        end
     end)
         
     inst:ListenForEvent("huntbeastnearby", function(inst, data)
         inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_HUNT_BEAST_NEARBY"))
+    end)
+	
+    inst:ListenForEvent("lightningdamageavoided", function(inst, data)
+        inst.components.talker:Say(GetString(inst.prefab, "ANNOUNCE_LIGHTNING_DAMAGE_AVOIDED"))
     end)
 	
     local dt = 5
@@ -85,8 +101,9 @@ local WisecrackerFollower = Class(function(self, inst)
 end)
 
 function WisecrackerFollower:OnUpdate(dt)
-    self.time_to_convo = self.time_to_convo - dt
-    if self.time_to_convo <= 0 and self.inst.sg:HasStateTag('idle') and not self.inst.sg:HasStateTag('busy') then
+
+	self.time_to_convo = self.time_to_convo - dt
+    if self.time_to_convo <= 0 and self.inst.sg:HasStateTag('idle') and not self.inst.sg:HasStateTag('busy') and not self.inst.sg:HasStateTag('hiding') then
         self:MakeIdleConversation()
     end
 	
@@ -113,17 +130,14 @@ end
 function WisecrackerFollower:Say(phrase, sound_override)
     self.sound_override = sound_override
     self.inst.components.talker:Say(phrase)
+	if self.inst.prefab == 'dsawes' then
+		self.inst.sg:GoToState("mime")
+	end
     self.time_to_convo = math.random(60, 120)
 end
 
 function WisecrackerFollower:MakeIdleConversation()
-	local currenthealth = self.inst.components.health.currenthealth / self.inst.components.health.maxhealth	
-	if currenthealth < 0.5 then 
-		self:Say(STRINGS.YNAWOODIE.HURT)
-		return
-	end
-	
-	local target = FindEntity(self.inst, 10, function(item) return item.components.inspectable and not item:HasTag("summonedbyplayer") end)
+	local target = FindEntity(self.inst, 10, function(item) return item.components.inspectable--[[and not item:HasTag("companion")]] end)
 	if target then
 		local status = target.components.inspectable:GetStatus(self.inst)
 		local quip = GetDescription(self.inst.prefab, target, status)
